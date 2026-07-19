@@ -8,7 +8,7 @@
 //
 // - 대화 페이지(/chat/<uuid>)에서만 동작
 // - lastActiveOrg 쿠키로 조직 ID를 읽어 claude.ai 내부 API를 호출
-// - 응답 JSON을 그대로 로컬 서버(http://127.0.0.1:8787)로 POST
+// - 응답 JSON을 그대로 로컬 서버(https://127.0.0.1:8787)로 POST
 
 javascript:(async () => {
   try {
@@ -17,7 +17,7 @@ javascript:(async () => {
     const orgId = (document.cookie.match(/lastActiveOrg=([^;]+)/) || [])[1];
     const url = `/api/organizations/${orgId}/chat_conversations/${m[1]}?tree=True&rendering_mode=raw`;
     const raw = await (await fetch(url, { headers: { accept: 'application/json' } })).json();
-    const r = await fetch('http://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(raw) });
+    const r = await fetch('https://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(raw) });
     const out = await r.json();
     alert(out.sessionId ? `저장됨: ${out.sessionId}` : `실패: ${out.error}`);
   } catch (e) { alert('오류: ' + e.message); }
