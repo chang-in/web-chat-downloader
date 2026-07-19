@@ -1,0 +1,34 @@
+{
+  "conversation_id": "conv-gpt-1",
+  "title": "제목",
+  "current_node": "n2",
+  "mapping": {
+    "n0": {
+      "message": {
+        "author": { "role": "user" },
+        "content": { "content_type": "text", "parts": ["안녕"] },
+        "create_time": 1700000000
+      },
+      "parent": null,
+      "children": ["n1"]
+    },
+    "n1": {
+      "message": {
+        "author": { "role": "assistant" },
+        "content": { "content_type": "text", "parts": ["반가워"] },
+        "create_time": 1700000001
+      },
+      "parent": "n0",
+      "children": ["n2"]
+    },
+    "n2": {
+      "message": {
+        "author": { "role": "assistant" },
+        "content": { "content_type": "text", "parts": ["더 도와줄까"] },
+        "create_time": 1700000002
+      },
+      "parent": "n1",
+      "children": []
+    }
+  }
+}
