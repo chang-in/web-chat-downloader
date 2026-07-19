@@ -4,6 +4,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { slug } from './slug'
 import { readClaudeVersion } from './claude-version'
+import { storeBlob } from './blobstore'
 import type { NormalizedChat, NormalizedMessage } from '../adapters/types'
 
 const msgId = () => `msg_${randomUUID().replace(/-/g, '')}`
@@ -15,9 +16,29 @@ function isoTs(ms?: number): string {
   return d.toISOString()
 }
 
-// Task 7에서 attachments 처리로 확장. Task 4에선 text만.
-function userContent(m: NormalizedMessage): string {
-  return m.text
+type ImageBlock = { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+type TextBlock = { type: 'text'; text: string }
+
+// blobBaseDir: 첨부 원본을 저장할 폴더(= 저장 cwd). 반환: user content(문자열 또는 블록배열)
+function buildUserContent(m: NormalizedMessage, blobBaseDir: string): string | (TextBlock | ImageBlock)[] {
+  const images = (m.attachments ?? []).filter(a => a.mediaType.startsWith('image/'))
+  const files = (m.attachments ?? []).filter(a => !a.mediaType.startsWith('image/'))
+  let text = m.text
+  for (const f of files) {
+    const ext = f.filename.split('.').pop() || 'bin'
+    const { relPath } = storeBlob(blobBaseDir, f.data, ext)
+    text += `\n[첨부: ${f.filename} → ${relPath}]`
+  }
+  if (images.length === 0) return text
+  const blocks: (TextBlock | ImageBlock)[] = []
+  if (text.trim()) blocks.push({ type: 'text', text })
+  for (const im of images) {
+    // 이미지도 원본 보관(§9): blobstore에 저장(중복 제거), 세션엔 base64 임베드
+    const ext = im.filename.split('.').pop() || 'img'
+    storeBlob(blobBaseDir, im.data, ext)
+    blocks.push({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.data } })
+  }
+  return blocks
 }
 function assistantContent(m: NormalizedMessage): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: m.text }]
@@ -46,7 +67,7 @@ export function writeSession(
       if (m.role === 'user') {
         lines.push(JSON.stringify({
           parentUuid, uuid, type: 'user', timestamp,
-          message: { role: 'user', content: userContent(m) },
+          message: { role: 'user', content: buildUserContent(m, opts.cwd) },
           promptId: randomUUID(), ...base,
         }))
       } else {
