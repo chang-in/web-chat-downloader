@@ -12,7 +12,7 @@
 |---|---|---|
 | claude.ai | `claude.js` | **PROVEN** — 이 흐름으로 저장한 세션이 실제 `claude --resume`으로 이어지는 것까지 확인됨(Task 5 실증 게이트). 단, 그 실증은 핸드빌트 세션 기준이고, 브라우저에서 이 북마클릿을 실제로 클릭해 캡처→저장까지 라이브로 돌려본 적은 아직 없다. 처음 쓸 땐 서버 콘솔에 `✔ 저장`이 뜨는지 확인할 것. |
 | ChatGPT | `chatgpt.js` | **UNTESTED** — 실제 ChatGPT 페이지에서 한 번도 실행해본 적 없음. 엔드포인트(`/api/auth/session`, `/backend-api/conversation/<id>`)는 알려진 구조를 근거로 작성. 게다가 **서버 쪽에 chatgpt 어댑터가 아직 없다**(Task 10 보류 — 실제 응답 픽스처가 있어야 만들 수 있음). 지금 클릭하면 fetch·POST 자체는 될 수 있어도 서버가 `unrecognized chat payload`로 거부할 가능성이 높다. |
-| Gemini | `gemini.js` | **PLACEHOLDER** — Gemini는 REST가 아니라 Google `batchexecute` RPC 배치 프로토콜을 쓰기 때문에 실제 응답 픽스처 없이는 파싱 로직을 확정할 수 없다. 이 파일은 "아직 구현 안 됨" alert만 띄우고 `turns: []`인 빈 셸을 서버로 보내 배관만 확인하게 해뒀다. 서버에도 gemini 어댑터가 없어 응답은 항상 에러(`unrecognized chat payload`)로 정상이다. |
+| Gemini | `gemini.js` | **동작 검증됨** — orca의 hNvQHb 재현 로직 이식. 실제 대화(7턴)에서 14메시지 정확 추출 확인(브라우저 실측). `c_` prefix + `credentials:include` 필수. |
 
 요약: **지금 실사용 가능한 건 claude.js뿐이다.** chatgpt.js·gemini.js는
 Task 10(어댑터, 실물 응답 픽스처 필요)이 끝나기 전까진 서버가 거부한다.
@@ -37,7 +37,7 @@ javascript:(async () => { try { const m = location.pathname.match(/chat\/([0-9a-
 javascript:(async () => { try { const id = location.pathname.split('/c/')[1]; if (!id) return alert('ChatGPT 대화 페이지에서 실행하세요'); const token = (await (await fetch('/api/auth/session')).json()).accessToken; const raw = await (await fetch(`/backend-api/conversation/${id}`, { headers: { authorization: `Bearer ${token}` } })).json(); const out = await (await fetch('http://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(raw) })).json(); alert(out.sessionId ? `저장됨: ${out.sessionId}` : `실패: ${out.error}`); } catch (e) { alert('오류: ' + e.message); }})();
 ```
 
-### gemini.js — 한 줄 코드 (PLACEHOLDER, 항상 실패가 정상)
+| Gemini | `gemini.js` | **동작 검증됨** — orca의 hNvQHb 재현 로직 이식. 실제 대화(7턴)에서 14메시지 정확 추출 확인(브라우저 실측). `c_` prefix + `credentials:include` 필수. |
 
 ```
 javascript:(async () => { try { alert('Gemini 캡처는 아직 구현되지 않았습니다 (batchexecute 응답 파싱은 TODO). 빈 셸만 서버로 전송합니다.'); const conversationId = location.pathname.split('/').filter(Boolean).pop() || ''; const payload = { source: 'gemini', conversationId, title: document.title || '', turns: [] }; /* TODO: batchexecute 응답에서 {role,text,ts}[] 파싱해 turns 채울 것 */ const r = await fetch('http://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); const out = await r.json(); alert(out.sessionId ? `저장됨: ${out.sessionId}` : `실패(예상된 결과 — gemini 어댑터 미구현): ${out.error}`); } catch (e) { alert('오류: ' + e.message); }})();
