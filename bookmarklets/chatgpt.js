@@ -11,7 +11,7 @@
 //
 // - 대화 페이지(/c/<id>)에서만 동작
 // - /api/auth/session에서 accessToken을 읽어 backend-api를 호출
-// - 응답 JSON을 그대로 로컬 서버(http://127.0.0.1:8787)로 POST
+// - 응답 JSON을 그대로 로컬 서버(https://127.0.0.1:8787)로 POST
 
 javascript:(async () => {
   try {
@@ -19,7 +19,7 @@ javascript:(async () => {
     if (!id) return alert('ChatGPT 대화 페이지에서 실행하세요');
     const token = (await (await fetch('/api/auth/session')).json()).accessToken;
     const raw = await (await fetch(`/backend-api/conversation/${id}`, { headers: { authorization: `Bearer ${token}` } })).json();
-    const out = await (await fetch('http://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(raw) })).json();
+    const out = await (await fetch('https://127.0.0.1:8787', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(raw) })).json();
     alert(out.sessionId ? `저장됨: ${out.sessionId}` : `실패: ${out.error}`);
   } catch (e) { alert('오류: ' + e.message); }
 })();

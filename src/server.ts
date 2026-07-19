@@ -1,4 +1,5 @@
 import http from 'http'
+import https from 'https'
 import { detectAdapter } from './adapters/registry'
 import { writeSession } from './core/session-writer'
 import { resolveSessionId, upsertIndex } from './core/index-store'
@@ -17,8 +18,8 @@ export function handleCapture(raw: unknown, cwd: string): { sessionId: string } 
   return res
 }
 
-export function startServer(opts: { port: number; cwd: string }): http.Server {
-  const server = http.createServer((req, res) => {
+export function startServer(opts: { port: number; cwd: string; key?: string; cert?: string }): http.Server | https.Server {
+  const handler: http.RequestListener = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*')      // 북마클릿 POST 허용
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
@@ -35,6 +36,9 @@ export function startServer(opts: { port: number; cwd: string }): http.Server {
       if ('sessionId' in out) console.log(`✔ 저장: ${out.sessionId}  → cd ${opts.cwd} && claude --resume ${out.sessionId}`)
       else console.error(`✘ ${out.error}`)
     })
-  })
+  }
+  const server = opts.key && opts.cert
+    ? https.createServer({ key: opts.key, cert: opts.cert }, handler)
+    : http.createServer(handler) // key/cert 없으면 기존 http (테스트용 하위호환)
   return server.listen(opts.port, '127.0.0.1')
 }
