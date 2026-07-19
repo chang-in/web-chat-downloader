@@ -22,6 +22,8 @@ export function startServer(opts: { port: number; cwd: string; key?: string; cer
   const handler: http.RequestListener = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*')      // 북마클릿 POST 허용
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    // preflight에 허용 메서드가 없으면 브라우저가 POST를 차단한다(실측: Failed to fetch)
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
     if (req.method !== 'POST') { res.writeHead(405); res.end(); return }
     let body = ''
