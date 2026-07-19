@@ -1,0 +1,18 @@
+{
+  "uuid": "conv-1",
+  "name": "제목",
+  "chat_messages": [
+    {
+      "sender": "human",
+      "text": "안녕",
+      "created_at": "2026-07-01T00:00:00Z",
+      "attachments": [],
+      "files": []
+    },
+    {
+      "sender": "assistant",
+      "text": "반가워",
+      "created_at": "2026-07-01T00:00:01Z"
+    }
+  ]
+}
