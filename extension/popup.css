@@ -76,14 +76,17 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 @keyframes wcd-sheen{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
 /* 하단 */
-.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;
+.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;
   border-top:1px solid var(--line);background:var(--surface)}
 .progress{display:flex;align-items:center;gap:7px;flex:1;min-width:0}
 .track{flex:1;height:4px;background:var(--line-soft);border-radius:2px;overflow:hidden}
 .fill{height:100%;width:0;background:var(--accent);transition:width .25s ease}
 .num{font-family:var(--mono);font-size:10.5px;color:var(--ink2);
   font-variant-numeric:tabular-nums;flex:none}
-.msg{font-size:11px;color:var(--ink2);margin-left:auto;text-align:right}
+/* 메시지는 길어질 수 있어 한 줄을 통째로 쓴다 — 진행률 숫자와 겹치지 않게 */
+.msg{font-size:11px;color:var(--ink2);flex-basis:100%;text-align:left;line-height:1.4;
+  word-break:keep-all}
+.msg:empty{display:none}
 .msg.err{color:#D14343}
 
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}

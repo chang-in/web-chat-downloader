@@ -353,7 +353,12 @@ async function init() {
       const listResult = Array.isArray(res) ? { items: res, partial: false } : res
       state.items = (listResult && listResult.items) || []
       if (listResult && listResult.partial) {
-        failures.push(`일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져올 수 있어요`)
+        // 하나도 못 받았으면 '일부만'이 아니라 실패다 — 문구를 상황에 맞게 나눈다.
+        failures.push(
+          state.items.length > 0
+            ? `일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져와요`
+            : '목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요',
+        )
       }
     } catch (e) {
       console.error('[wcd] 목록 조회 실패', e)
