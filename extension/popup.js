@@ -10,6 +10,7 @@
 
 const SVC_LABEL = { claude: 'claude.ai', chatgpt: 'chatgpt.com', gemini: 'gemini.google.com' }
 const SVC_FRIENDLY = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini' } // rate-limit 안내 문구용(도메인이 아니라 자연스러운 서비스명)
+const LIST_CACHE_TTL_MS = 10 * 60 * 1000 // 캐시가 이 시간 안이면 목록 네트워크 조회를 아예 건너뛴다
 
 // content.js가 돌려주는 rate-limit reason("rate-limited" 또는 "rate-limited:60")을 사용자
 // 문구로 바꾼다. background.js(대량 동기화 중단)도 같은 원인이면 같은 문구를 보여줘야
@@ -186,6 +187,118 @@ function renderList() {
   }
 }
 
+// ───────────────────── 목록 캐시 ─────────────────────
+//
+// 팝업을 열 때마다 페이지네이션 전체를 다시 훑으면(196개 계정 기준 8+ 요청) 서비스가
+// 계정을 rate limit 걸 수 있다(실제로 겪은 사고). 서비스별로 chrome.storage.local에
+// { items, fetchedAt, partial }을 저장해두고, 신선하면(10분 이내) 네트워크를 아예 안 부르고
+// 캐시를 그대로 쓴다.
+
+function listCacheKey(service) {
+  return `list:${service}`
+}
+
+async function readListCache(service) {
+  const key = listCacheKey(service)
+  const data = await chrome.storage.local.get(key)
+  const entry = data[key]
+  // 옛 버전 확장이 남긴 형태가 다르거나 손상된 값이면 캐시 없음과 동일하게 취급한다.
+  if (!entry || !Array.isArray(entry.items) || typeof entry.fetchedAt !== 'number') return null
+  return entry
+}
+
+function writeListCache(service, items, partial) {
+  return chrome.storage.local.set({ [listCacheKey(service)]: { items, fetchedAt: Date.now(), partial: !!partial } })
+}
+
+function clearListCache(service) {
+  return chrome.storage.local.remove(listCacheKey(service))
+}
+
+function cacheAgeLabel(fetchedAt) {
+  const min = Math.floor((Date.now() - fetchedAt) / 60000)
+  if (min < 1) return '방금 전'
+  if (min < 60) return `${min}분 전`
+  return `${Math.floor(min / 60)}시간 전`
+}
+
+// content.js가 돌려주는 list 응답을 정규화한다(구버전이 주입돼 배열을 그대로 줄 수도 있다).
+async function fetchServiceList() {
+  const res = await sendToTab({ cmd: 'list' })
+  return Array.isArray(res) ? { items: res, partial: false } : res || { items: [], partial: false }
+}
+
+function partialFailureMessage(listResult, items) {
+  if (listResult.reason && /^rate-limited/.test(listResult.reason)) {
+    // rate limit은 "일부만 불러왔어요"와 같은 급이 아니다 — 계정이 이미 서비스에서 제한을
+    // 먹은 상태이므로, 무시하고 넘어가면 안 되는 별도 문구로 보여준다.
+    return rateLimitMessage(listResult.reason, state.service)
+  }
+  return items.length > 0
+    ? `일부만 불러왔어요 (${items.length}개) — 다시 열면 더 가져와요`
+    : '목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요'
+}
+
+// 새로 받아온 목록 결과를 화면/캐시에 반영할지 결정한다. partial(특히 rate-limit) 결과가
+// 기존에 갖고 있던 더 큰 캐시보다 적으면 버린다 — rate limit으로 일부만 받은 걸 완전한
+// 것처럼 캐시에 덮어써서 더 온전했던 이전 캐시를 잃으면 안 된다(cacheEntry가 null이면,
+// 즉 비교할 이전 캐시가 없으면 — 수동 새로고침처럼 캐시를 이미 지운 경우 포함 — 항상
+// 받아들인다).
+async function applyListResult(listResult, cacheEntry) {
+  const items = (listResult && listResult.items) || []
+  const partial = !!(listResult && listResult.partial)
+  const failureMsg = partial ? partialFailureMessage(listResult, items) : null
+
+  if (partial && cacheEntry && cacheEntry.items.length > items.length) {
+    return { accepted: false, failureMsg }
+  }
+
+  state.items = items
+  renderList()
+  updateActionButtons()
+  await writeListCache(state.service, items, partial)
+  return { accepted: true, failureMsg }
+}
+
+// 캐시가 있어서 이미 화면에 떠 있는 상태에서, 오래된 캐시를 조용히 새로 불러온다. init()을
+// 막지 않는다 — 화면은 캐시 그대로 유지되고(깜빡임 없음) 도착하면 교체된다.
+function refreshListInBackground(cacheEntry) {
+  fetchServiceList()
+    .then((listResult) => applyListResult(listResult, cacheEntry))
+    .then((result) => {
+      if (result.failureMsg) setMsg(result.failureMsg, true)
+      else if (result.accepted) setMsg('') // 성공했으니 "저장된 목록 (N분 전)" 안내를 지운다
+    })
+    .catch((e) => {
+      console.error('[wcd] 백그라운드 목록 재조회 실패', e)
+      // 캐시가 이미 화면에 떠 있으니 조용히 넘어간다 — 급하게 알려야 할 에러는 아니다.
+    })
+}
+
+// 목록 헤더 라벨(.lbl) 클릭/Enter/Space로 트리거되는 수동 새로고침 — 10분 기다리지 않고
+// 캐시를 지운 뒤 곧바로 다시 불러온다. 사용자가 직접 누른 명시적 동작이라 스켈레톤을
+// 보여줘도 된다(자동 백그라운드 재조회와 달리 화면 유지가 필수는 아니다).
+let listRefreshing = false
+async function onManualRefresh() {
+  if (!state.service || listRefreshing) return
+  listRefreshing = true
+  try {
+    await clearListCache(state.service)
+    renderLoading()
+    const listResult = await fetchServiceList()
+    const result = await applyListResult(listResult, null)
+    setMsg(result.failureMsg || '', !!result.failureMsg)
+  } catch (e) {
+    console.error('[wcd] 수동 새로고침 실패', e)
+    state.items = []
+    renderList()
+    updateActionButtons()
+    setMsg(`목록을 불러오지 못했어요: ${e.message || e}`, true)
+  } finally {
+    listRefreshing = false
+  }
+}
+
 // ───────────────────── 진행률 ─────────────────────
 
 function showProgress(total) {
@@ -303,6 +416,22 @@ btnAll.addEventListener('click', onAll)
 btnSelected.addEventListener('click', onSelected)
 btnToggleAll.addEventListener('click', onToggleAll)
 
+// 목록 헤더의 "대화 N" 라벨을 수동 새로고침 버튼처럼 쓴다 — popup.html/css는 건드리지
+// 않기로 해서 새 버튼 대신 기존 요소에 role/tabindex/핸들러만 얹는다.
+const lblEl = document.querySelector('.lbl')
+if (lblEl) {
+  lblEl.title = '클릭하면 목록을 새로 불러와요'
+  lblEl.setAttribute('role', 'button')
+  lblEl.tabIndex = 0
+  lblEl.addEventListener('click', onManualRefresh)
+  lblEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onManualRefresh()
+    }
+  })
+}
+
 // ───────────────────── 초기화 ─────────────────────
 
 // init의 각 단계는 독립적으로 실패할 수 있다 — 한 단계가 던져도 나머지 단계와
@@ -345,6 +474,20 @@ async function init() {
 
   updateActionButtons()
 
+  // 2-1. 캐시가 있으면 여기서 바로 그린다 — 스켈레톤을 계속 보여줄 이유가 없다. 서비스가
+  // 확인되자마자(호스트/인덱스/네트워크 목록 조회를 기다리지 않고) 화면을 채운다. 아래
+  // 4번에서 이 cacheEntry를 다시 참조해 신선도 판단과 partial 가드에 쓴다.
+  let cacheEntry = null
+  if (state.service) {
+    cacheEntry = await readListCache(state.service)
+    if (cacheEntry) {
+      state.items = cacheEntry.items
+      renderList()
+      updateActionButtons()
+      setMsg(`저장된 목록 (${cacheAgeLabel(cacheEntry.fetchedAt)})`)
+    }
+  }
+
   // 3. 저장된 인덱스(이미 저장된 대화 ✓ 표시용) — 실패해도 목록 자체는 떠야 하므로
   // indexMap만 비워두고(✓ 표시 없이) 계속 진행한다.
   if (state.hostOk) {
@@ -357,32 +500,27 @@ async function init() {
     }
   }
 
-  // 4. 대화 목록 — content.js는 { items, partial, reason? } 모양을 돌려준다(구버전이 주입돼
-  // 배열을 그대로 줄 수도 있으니 방어적으로 둘 다 받는다). partial이면 몇 페이지 실패로
-  // 일부만 불러온 것 — 던지지 않았으니 실패 처리 대신 안내 메시지만 failures에 얹는다.
+  // 4. 대화 목록 갱신 여부 — 캐시가 10분 이내로 신선하면 네트워크를 아예 안 부른다(계정이
+  // rate limit 먹은 적 있어서 재요청을 최대한 줄이는 게 이 단계의 목적이다). 캐시가
+  // 있었지만 오래됐으면 백그라운드로 다시 불러온다(화면은 2-1에서 그린 캐시 그대로 두고
+  // init()도 기다리지 않는다 — 깜빡임 없음). 캐시가 아예 없었으면 지금까지처럼 여기서
+  // 기다린 뒤 그린다(스켈레톤 유지).
   if (state.service) {
-    try {
-      const res = await sendToTab({ cmd: 'list' })
-      const listResult = Array.isArray(res) ? { items: res, partial: false } : res
-      state.items = (listResult && listResult.items) || []
-      if (listResult && listResult.partial) {
-        if (listResult.reason && /^rate-limited/.test(listResult.reason)) {
-          // rate limit은 "일부만 불러왔어요"와 같은 급이 아니다 — 계정이 이미 서비스에서
-          // 제한을 먹은 상태이므로, 무시하고 넘어가면 안 되는 별도 문구로 보여준다.
-          failures.push(rateLimitMessage(listResult.reason, state.service))
-        } else {
-          // 하나도 못 받았으면 '일부만'이 아니라 실패다 — 문구를 상황에 맞게 나눈다.
-          failures.push(
-            state.items.length > 0
-              ? `일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져와요`
-              : '목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요',
-          )
+    const isFresh = cacheEntry && Date.now() - cacheEntry.fetchedAt < LIST_CACHE_TTL_MS
+    if (!isFresh) {
+      if (cacheEntry) {
+        refreshListInBackground(cacheEntry)
+      } else {
+        try {
+          const listResult = await fetchServiceList()
+          const result = await applyListResult(listResult, null)
+          if (result.failureMsg) failures.push(result.failureMsg)
+        } catch (e) {
+          console.error('[wcd] 목록 조회 실패', e)
+          state.items = []
+          failures.push(`목록을 불러오지 못했어요: ${e.message || e}`)
         }
       }
-    } catch (e) {
-      console.error('[wcd] 목록 조회 실패', e)
-      state.items = []
-      failures.push(`목록을 불러오지 못했어요: ${e.message || e}`)
     }
   }
 

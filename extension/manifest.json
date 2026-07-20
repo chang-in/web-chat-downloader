@@ -22,7 +22,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["nativeMessaging", "activeTab", "scripting", "tabs", "clipboardWrite"],
+  "permissions": ["nativeMessaging", "activeTab", "scripting", "tabs", "clipboardWrite", "storage"],
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",
