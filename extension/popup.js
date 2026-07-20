@@ -551,6 +551,11 @@ async function init() {
   updateActionButtons()
 }
 
+document.getElementById('btn-options').addEventListener('click', () => {
+  // 확장 옵션 페이지는 전용 API로 열어야 브라우저가 올바른 컨텍스트를 준다.
+  chrome.runtime.openOptionsPage()
+})
+
 document.getElementById('btn-help').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('help.html') })
 })

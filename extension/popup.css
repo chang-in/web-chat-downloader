@@ -17,19 +17,19 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 .app{display:flex;flex-direction:column;max-height:560px}
 
 /* 상태 */
-.status{display:flex;align-items:center;gap:8px;padding:12px 14px;
+.status{display:flex;align-items:center;gap:6px;padding:12px 14px;
   border-bottom:1px solid var(--line);background:var(--surface)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:none}
 [data-host="ok"] .dot{background:var(--accent)}
 [data-host="off"] .dot{background:#D14343}
 .svc{font-weight:600;letter-spacing:-0.01em}
 .host{margin-left:auto;font-size:11px;color:var(--ink2)}
-/* 도움말은 상시 보이되 시선을 뺏지 않게 — 테두리만 있는 작은 원 */
-.help{flex:none;width:17px;height:17px;padding:0;border-radius:50%;
+/* 설정·도움말은 상시 보이되 시선을 뺏지 않게 — 테두리만 있는 작은 원 */
+.iconbtn{flex:none;width:17px;height:17px;padding:0;border-radius:50%;
   border:1px solid var(--line);background:none;color:var(--ink3);
   font-family:inherit;font-size:10px;line-height:1;cursor:pointer;
   transition:color .15s,border-color .15s}
-.help:hover{color:var(--ink);border-color:var(--ink3)}
+.iconbtn:hover{color:var(--ink);border-color:var(--ink3)}
 [data-host="off"] .host{color:#D14343}
 
 /* 주 액션 */
