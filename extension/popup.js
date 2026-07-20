@@ -104,12 +104,14 @@ function updateActionButtons() {
   btnToggleAll.disabled = !capturable || state.items.length === 0
 
   // #btn-selected는 새 버튼을 만들지 않고 이 슬롯을 그대로 재사용한다 — 실행 중엔
-  // "동기화 취소"로 라벨과 동작이 바뀐다.
-  if (running) {
+  // "동기화 취소"로 라벨과 동작이 바뀐다. 단, 취소는 '이 팝업의 서비스'가 돌고 있을
+  // 때만이다 — 서비스를 안 가리면 ChatGPT 팝업에서 누른 취소가 돌고 있던 Gemini
+  // 동기화를 죽인다.
+  if (running && runState.service === state.service) {
     btnSelected.disabled = false
     btnSelected.textContent = '동기화 취소'
   } else {
-    btnSelected.disabled = !capturable || state.selected.size === 0
+    btnSelected.disabled = !capturable || state.selected.size === 0 || running
     btnSelected.textContent = '선택 가져오기'
   }
 }
@@ -372,7 +374,13 @@ function applyRunState(next) {
   if (runState.running) {
     showProgress(runState.total)
     setProgress(runState.done, runState.total)
-    setMsg('')
+    // 다른 서비스의 동기화가 도는 동안엔 이 팝업의 버튼이 전부 잠긴다 — 이유를 안 적으면
+    // 고장으로 읽힌다. 진행률 자체는 그대로 보여준다(어차피 같은 확장의 작업이라).
+    if (runState.service && runState.service !== state.service) {
+      setMsg(`${SVC_FRIENDLY[runState.service] || runState.service} 동기화가 진행 중이에요`)
+    } else {
+      setMsg('')
+    }
   } else {
     hideProgress()
     if (wasRunning) finalizeSync() // 이 팝업이 지켜보는 동안 방금 끝났다(완료/취소/에러)
@@ -433,7 +441,8 @@ async function onAll() {
 // 중이면 "동기화 취소"(updateActionButtons가 라벨을 바꾼다).
 async function onSelected() {
   if (runState.running) {
-    applyRunState(await syncCancel())
+    // 내 서비스의 실행일 때만 취소한다(버튼 라벨과 같은 조건) — 남의 동기화는 건드리지 않는다.
+    if (runState.service === state.service) applyRunState(await syncCancel())
     return
   }
   if (!canCapture() || state.selected.size === 0) return
