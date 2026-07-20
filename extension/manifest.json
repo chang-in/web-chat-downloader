@@ -22,11 +22,20 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["nativeMessaging", "activeTab", "scripting", "tabs", "clipboardWrite", "storage"],
+  "permissions": [
+    "activeTab",
+    "alarms",
+    "clipboardWrite",
+    "nativeMessaging",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://gemini.google.com/*"
-  ]
+  ],
+  "options_page": "options.html"
 }
