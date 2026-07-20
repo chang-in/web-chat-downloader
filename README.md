@@ -79,6 +79,10 @@ node dist/cli.js install-host
 
 claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을 누르면 됩니다.
 
+<p align="center">
+  <img src="docs/assets/popup.png" alt="확장 팝업 — 대화 목록과 가져오기 버튼" width="380">
+</p>
+
 | 버튼 | 하는 일 |
 |---|---|
 | 이 대화 가져오기 | 지금 보고 있는 대화 하나 |
@@ -90,9 +94,17 @@ claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을
 
 자세한 사용법은 팝업 오른쪽 위 **?** 버튼에서 볼 수 있습니다.
 
+<p align="center">
+  <img src="docs/assets/help.png" alt="도움말 화면 — 설치부터 이어가기까지 단계별 안내" width="640">
+</p>
+
 ## 설정
 
 팝업의 **⚙** 버튼에서 바꿀 수 있습니다.
+
+<p align="center">
+  <img src="docs/assets/options.png" alt="설정 화면 — 기본 에이전트·자동 동기화·저장 위치" width="420">
+</p>
 
 - **기본 에이전트** — Claude Code / Codex 중 어느 형식으로 저장할지
 - **저장 위치** — 서비스별로 폴더를 나눌 수 있습니다 (나누면 재개 목록도 서비스별로 깔끔해집니다)
