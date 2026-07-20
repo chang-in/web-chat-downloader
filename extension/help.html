@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>웹 대화 다운로더 · 사용법</title>
+<style>
+:root{--bg:#FAFAFB;--surface:#FFF;--line:#E6E6EB;--line-soft:#F0F0F4;
+  --ink:#16161A;--ink2:#6E6E7A;--ink3:#9A9AA6;--accent:#C4633F;--accent-soft:#FBEFEA;
+  --ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;--r:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:0 auto;padding:48px 24px 72px}
+h1{font-size:22px;letter-spacing:-0.02em;margin-bottom:6px}
+.sub{color:var(--ink2);font-size:13px;margin-bottom:36px}
+h2{font-size:15px;margin:32px 0 10px;letter-spacing:-0.01em}
+h2 .n{display:inline-block;width:20px;color:var(--accent);font-family:var(--mono);font-size:13px}
+p{margin-bottom:10px;color:var(--ink)}
+p.note{color:var(--ink2);font-size:13px}
+code{font-family:var(--mono);font-size:12.5px;background:var(--line-soft);
+  padding:1px 5px;border-radius:4px}
+pre{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);
+  border-left:2px solid var(--accent);border-radius:0 var(--r) var(--r) 0;
+  padding:10px 12px;overflow-x:auto;margin:10px 0}
+ul{margin:8px 0 12px 18px}
+li{margin-bottom:5px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 16px;margin:14px 0}
+.card h3{font-size:13px;margin-bottom:6px}
+.card p{font-size:13px;color:var(--ink2);margin:0}
+hr{border:0;border-top:1px solid var(--line);margin:36px 0}
+.q{font-weight:600;margin-top:16px;margin-bottom:4px;font-size:13.5px}
+.a{color:var(--ink2);font-size:13px}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#131316;--surface:#1B1B1F;--line:#2A2A30;--line-soft:#232328;
+    --ink:#ECECEF;--ink2:#9A9AA6;--accent:#E0805C;--accent-soft:#2A1D18}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>웹 대화 다운로더</h1>
+  <p class="sub">claude.ai · ChatGPT · Gemini의 대화를 로컬 세션 파일로 가져와, 터미널에서 이어서 대화합니다.</p>
+
+  <h2><span class="n">01</span>처음 한 번만: 호스트 연결</h2>
+  <p>확장은 브라우저 안에 있어서 파일을 직접 만들 수 없습니다. 파일을 쓰는 역할은 로컬 프로그램(네이티브 호스트)이 맡고, Chrome이 필요할 때 알아서 실행합니다. 터미널에서 아래를 한 번 실행하세요.</p>
+  <pre>cd ~/Desktop/Projects/web-chat-downloader
+npm install &amp;&amp; npm run build
+node dist/cli.js install-host</pre>
+  <p class="note">확장 ID는 자동으로 찾습니다. 서버를 따로 켜둘 필요가 없고, 평소에 떠 있는 프로세스도 없습니다.</p>
+
+  <h2><span class="n">02</span>대화 가져오기</h2>
+  <p>claude.ai · ChatGPT · Gemini의 대화 페이지에서 확장 아이콘을 누르면 됩니다.</p>
+  <ul>
+    <li><strong>이 대화 가져오기</strong> — 지금 보고 있는 대화 하나만</li>
+    <li><strong>전체 동기화</strong> — 그 서비스의 대화를 순서대로 전부</li>
+    <li><strong>선택 가져오기</strong> — 목록에서 체크한 것만</li>
+  </ul>
+  <p class="note">이미 가져온 대화는 목록에 ✓로 표시됩니다. 목록은 10분간 저장해두고 재사용하며, <code>대화 N</code>을 클릭하면 즉시 새로 불러옵니다.</p>
+
+  <h2><span class="n">03</span>터미널에서 이어가기</h2>
+  <p>가져온 대화 아래에 실제 실행할 명령이 그대로 보입니다. 누르면 복사되니 터미널에 붙여넣으세요.</p>
+  <pre>cd ~/Desktop/Archive/web-chats &amp;&amp; claude --resume &lt;세션ID&gt;</pre>
+  <p class="note">웹에서 하던 대화 맥락 그대로 이어집니다.</p>
+
+  <h2><span class="n">04</span>아이콘 뱃지</h2>
+  <div class="card">
+    <h3>숫자 · ✓ · !</h3>
+    <p>동기화 중에는 진행률(%)이, 문제없이 끝나면 <strong>✓</strong>가, 실패한 항목이 있으면 <strong>!</strong>가 잠깐 표시됩니다. 팝업을 닫아도 동기화는 계속됩니다.</p>
+  </div>
+
+  <hr>
+
+  <h2>자주 묻는 것</h2>
+
+  <p class="q">같은 대화를 다시 가져오면 중복되나요?</p>
+  <p class="a">아니요. 대화별로 세션을 기억해서 <strong>같은 파일을 갱신</strong>합니다. 웹에서 대화를 더 이어간 뒤 다시 가져오면 최신 내용으로 덮어씁니다. 다만 로컬에서 <code>--resume</code>으로 이어간 내용은 덮일 수 있습니다(웹을 원본으로 봅니다).</p>
+
+  <p class="q">"요청이 너무 많다"는 메시지가 떴어요.</p>
+  <p class="a">서비스가 일시적으로 요청을 제한한 것입니다. 확장은 이 신호를 받으면 <strong>즉시 멈추고</strong> 그때까지 받은 목록은 살려둡니다. 1~2분 뒤 다시 열어주세요.</p>
+
+  <p class="q">목록이 안 뜨고 회색 줄만 보여요.</p>
+  <p class="a">불러오는 중입니다. 대화가 많은 계정은 몇 초 걸립니다. 한 번 불러오면 10분간 저장해두므로 다음부터는 즉시 뜹니다.</p>
+
+  <p class="q">자동 동기화는 언제 도나요?</p>
+  <p class="a">설정에서 켤 수 있고, 해당 서비스의 <strong>탭이 열려 있을 때만</strong> 동작합니다. 대화 데이터는 로그인된 페이지 안에서만 읽을 수 있기 때문입니다.</p>
+
+  <p class="q">첨부와 이미지는요?</p>
+  <p class="a">이미지는 세션에 함께 담겨 대화에서 바로 보이고, 그 외 파일은 <code>attachments/</code> 폴더에 저장되며 대화에는 파일명이 남습니다.</p>
+</div>
+</body>
+</html>
