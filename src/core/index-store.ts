@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import type { Agent } from './resume-hint.js'
 
 // agent는 optional — 코덱스 지원 이전에 쓰인 기존 인덱스 파일엔 이 필드가 없다(하위호환).
@@ -24,5 +25,15 @@ export function resolveSessionId(cwd: string, externalId: string): string | null
 export function upsertIndex(cwd: string, externalId: string, entry: Entry): void {
   const idx = loadIndex(cwd)
   idx[externalId] = entry
-  writeFileSync(file(cwd), JSON.stringify(idx, null, 2))
+  const target = file(cwd)
+  // 같은 디렉터리의 프로세스별 임시 파일에 먼저 쓰고 rename으로 교체한다.
+  // rename은 같은 파일시스템 안에서 원자적이라 반쪽짜리 JSON이 남지 않는다.
+  const tmp = `${target}.${process.pid}.${randomUUID()}.tmp`
+  try {
+    writeFileSync(tmp, JSON.stringify(idx, null, 2))
+    renameSync(tmp, target)
+  } catch (err) {
+    try { unlinkSync(tmp) } catch { /* 임시 파일이 없거나 이미 정리됨 */ }
+    throw err
+  }
 }
