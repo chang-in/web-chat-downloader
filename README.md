@@ -47,19 +47,26 @@ extension/
 ```bash
 npm install
 npm run build
-node dist/cli.js install-host <extensionId>
+node dist/cli.js install-host           # extensionId 생략 시 자동 탐지
+node dist/cli.js install-host <extensionId>  # 필요하면 직접 지정
 ```
 
-- `<extensionId>`는 확장 프로그램을 `chrome://extensions`에 "압축해제된 확장 프로그램을
-  로드"로 올렸을 때 그 페이지에 표시되는 32자 ID다. 확장 프로그램 로드 방법은
-  [`extension/README.md`](extension/README.md) 참고.
+- `<extensionId>`는 생략할 수 있다 — Chrome의 프로필별 `Preferences`에서
+  `extension/` 폴더를 가리키는 압축해제 확장을 자동으로 찾는다. 여러 Chrome
+  프로필에 걸쳐 검색하고, 못 찾으면 뭘 확인해야 하는지 안내 메시지를 띄운다.
+  자동 탐지가 여러 개의 ID를 찾으면(여러 프로필에 각각 로드해둔 경우 등)
+  전부 `allowed_origins`에 등록한다.
+- 직접 지정하려면 확장 프로그램을 `chrome://extensions`에 "압축해제된 확장
+  프로그램을 로드"로 올렸을 때 그 페이지에 표시되는 32자 ID를 인자로 넘기면
+  된다. 확장 프로그램 로드 방법은 [`extension/README.md`](extension/README.md)
+  참고.
 - 설치 명령은 두 파일을 쓴다.
   - 런처: `~/.web-chat-downloader/host.sh` (실행 권한 755, 빌드된 `dist/cli.js host`를
     절대 경로로 실행)
   - 매니페스트: `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.web_chat_downloader.host.json`
     (`allowed_origins`에 위 extensionId를 등록)
 - **먼저 `npm run build`를 실행해 `dist/cli.js`를 만들어둬야 한다** — 런처는 그 파일을 그대로 가리킨다.
-- 확장 프로그램을 다시 설치해서 ID가 바뀌면 `install-host`를 그 새 ID로 다시 실행하면 된다(덮어씀).
+- 확장 프로그램을 다시 설치해서 ID가 바뀌면 `install-host`를 인자 없이(또는 새 ID로) 다시 실행하면 된다(덮어씀).
 
 ## 사용 흐름
 
