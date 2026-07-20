@@ -25,7 +25,7 @@ const HOST_NAME = 'com.web_chat_downloader.host'
 // settings.js(WCD_SETTINGS_KEY, WCD_DEFAULTS, wcdLoadSettings)와 colors.js(WCD_SERVICE_COLORS)를
 // 서비스 워커 전역에 끌어온다. manifest.json의 background가 "type": "module"이 아닌 classic
 // 서비스 워커라 importScripts를 쓸 수 있다 — 별도 번들러 없이 전역을 공유하는 가장 단순한 방법.
-importScripts('settings.js', 'colors.js')
+importScripts('settings.js', 'colors.js', 'sync-filter.js')
 const BADGE_ACCENT = '#C4633F' // service를 모를 때(run.service가 null 등)의 폴백 색 —
 // 우연히 WCD_SERVICE_COLORS.claude와 같은 값이지만, 이건 서비스별 팔레트가 생기기 전부터
 // 있던 브랜드 accent라 개념이 다르다(팔레트가 바뀌어도 폴백은 안 바뀌어야 하므로 따로 둔다).
@@ -409,7 +409,16 @@ async function fetchAutoSyncIds(tabId, service, scope) {
   let items = listResult.items || []
   // syncScope.recentOnly: 목록은 항상 최신순이라 앞에서 N개만 자르면 된다.
   if (scope && scope.recentOnly) items = items.slice(0, Math.max(0, Number(scope.recentN) || 0))
-  return items.map((it) => it && it.externalId).filter(Boolean)
+
+  // 이미 최신인 건 빼고 넘긴다 — 팝업의 전체 동기화와 같은 기준(sync-filter.js)을 쓴다.
+  // 자동 동기화는 30분~3시간마다 스스로 도는데, 매번 전량을 다시 받으면 그 자체가
+  // rate limit을 부르는 데다 새 대화가 뒤쪽에 있으면 영영 못 받는다.
+  // 인덱스 조회에 실패하면(호스트 미실행 등) 거르지 않고 전부 넘긴다 — 판단 근거가
+  // 없을 때 걸러내면 조용히 빠뜨리게 된다.
+  const idxRes = await callHost({ type: 'index' })
+  const index = idxRes && idxRes.ok && idxRes.index ? idxRes.index : null
+  const targets = index ? items.filter((it) => wcdNeedsCapture(it, index[it && it.externalId])) : items
+  return targets.map((it) => it && it.externalId).filter(Boolean)
 }
 
 async function runAutoSyncInner() {
