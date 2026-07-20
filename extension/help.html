@@ -64,6 +64,14 @@ node dist/cli.js install-host</pre>
   <pre>cd ~/Desktop/Archive/web-chats &amp;&amp; claude --resume &lt;세션ID&gt;</pre>
   <p class="note">웹에서 하던 대화 맥락 그대로 이어집니다.</p>
 
+  <div class="card">
+    <h3>Codex로 이어가기</h3>
+    <p>설정에서 <strong>기본 에이전트</strong>를 Codex로 바꾸면, 가져온 대화가 Codex 세션 형식으로 저장되고 복사되는 명령도 함께 바뀝니다.</p>
+  </div>
+  <pre>codex resume &lt;세션ID&gt;</pre>
+  <p class="note">Codex는 세션 ID를 직접 받기 때문에 폴더를 옮길 필요가 없습니다(<code>cd</code> 불필요). 세션 파일은 Codex 규칙에 따라 <code>~/.codex/sessions/</code> 아래에 날짜별로 저장됩니다.</p>
+  <p class="note">에이전트는 대화를 가져오는 시점의 설정을 따릅니다. 이미 가져온 대화의 형식은 바뀌지 않으니, 다른 에이전트로 쓰고 싶다면 설정을 바꾼 뒤 그 대화를 다시 가져오세요.</p>
+
   <h2><span class="n">04</span>아이콘 뱃지</h2>
   <div class="card">
     <h3>숫자 · ✓ · !</h3>
