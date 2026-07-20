@@ -36,5 +36,6 @@
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://gemini.google.com/*"
-  ]
+  ],
+  "options_page": "options.html"
 }
