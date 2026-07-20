@@ -124,14 +124,14 @@ if (!window.__wcdContentInjected) {
     const items = []
     const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     const PAGE_SIZE = 28
-    // SAFETY_PAGES는 사용량 상한이 아니라 무한 루프 방지용이다. 정상 종료는 서버가 짧은
+    // SAFETY_REQUESTS는 사용량 상한이 아니라 무한 루프 방지용이다. 정상 종료는 서버가 빈
     // 페이지를 돌려주는 것뿐이고, 여기까지 왔다면 그건 비정상이므로 조용히 끝내지 않고
     // partial로 보고한다 — "데이터가 끝나서 멈춤"과 "내 한계에 걸려서 멈춤"은 다른 사건이다.
-    const SAFETY_PAGES = 500 // 28 × 500 = 14,000개
+    const SAFETY_REQUESTS = 500
     const PAGE_DELAY = 500 // 페이지 사이 간격 — 요청을 몰아치지 않게 해서 계정 rate limit을 피한다
     let reachedEnd = false
-    for (let page = 0; page < SAFETY_PAGES; page++) {
-      const offset = page * PAGE_SIZE
+    let offset = 0
+    for (let req = 0; req < SAFETY_REQUESTS; req++) {
       const url = `/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`
 
       // 대화 200개+ 계정에서 뒤쪽 페이지가 타임아웃/5xx로 실패하는 걸 실측했다 — 한 번만
@@ -156,7 +156,7 @@ if (!window.__wcdContentInjected) {
           if (attempt === 0) await sleep(LIST_RETRY_WAIT)
         }
       }
-      if (!ok) return { items, partial: true, reason: `페이지 ${page + 1} 조회 실패` }
+      if (!ok) return { items, partial: true, reason: `offset ${offset} 조회 실패` }
 
       const pageItems = (data && data.items) || []
       for (const it of pageItems) {
@@ -168,11 +168,17 @@ if (!window.__wcdContentInjected) {
           updatedAt: typeof it.update_time === 'string' ? it.update_time : null,
         })
       }
-      if (pageItems.length < PAGE_SIZE) { reachedEnd = true; break }
+      // 짧은 페이지는 끝이 아니다 — 서버가 요청한 개수보다 적게 주는 걸 실측했다(같은
+      // offset이 한 번은 10개, 곧이어 28개를 돌려줬다). 그걸 끝으로 보면 목록이 중간에서
+      // 잘린 채 "다 받았다"고 보고된다. 끝은 빈 페이지로만 판정한다.
+      if (pageItems.length === 0) { reachedEnd = true; break }
+      // offset은 '요청한 개수'가 아니라 '실제로 받은 개수'만큼만 전진시킨다. PAGE_SIZE만큼
+      // 밀면 짧은 페이지 뒤에 오는 항목들을 아무도 못 본 채 건너뛴다(구멍이 생긴다).
+      offset += pageItems.length
       await sleep(PAGE_DELAY)
     }
     if (!reachedEnd) {
-      return { items, partial: true, reason: `안전 상한(${SAFETY_PAGES}페이지) 도달 — 대화가 더 남아 있을 수 있어요` }
+      return { items, partial: true, reason: `안전 상한(${SAFETY_REQUESTS}회 요청) 도달 — 대화가 더 남아 있을 수 있어요` }
     }
     return { items, partial: false }
   }
