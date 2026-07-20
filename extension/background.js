@@ -60,6 +60,19 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+// 취소에 반응해야 하는 대기는 한 번에 오래 자면 안 된다 — await sleep(60000)은 깨울 방법이
+// 없는 잠이라, 취소 플래그가 아무리 빨리 서도 코드가 그걸 읽는 지점이 60초 뒤에나 온다.
+// 짧게 여러 번 자면서 매번 확인한다(총 대기 시간은 같고 반응성만 달라진다).
+const CANCEL_CHECK_MS = 250
+async function sleepUnlessCancelled(ms) {
+  const until = Date.now() + ms
+  while (!run.cancelled) {
+    const left = until - Date.now()
+    if (left <= 0) return
+    await sleep(Math.min(CANCEL_CHECK_MS, left))
+  }
+}
+
 // ───────────────────── ping / index / 단건 capture 중계 ─────────────────────
 //
 // 포트는 요청마다 새로 연다(lazy reconnect-per-request) — 이 세 가지는 팝업 세션당 몇 번
@@ -332,7 +345,7 @@ async function runSyncLoopInner(ids, myGen) {
           const waitMs = m ? (Number(m[1]) + 2) * 1000 : RATE_LIMIT_DEFAULT_WAIT_MS
           run.waitingUntil = Date.now() + waitMs // 팝업이 "n초 뒤 이어받아요"를 그리는 데 쓴다
           pushUpdate()
-          await sleep(waitMs)
+          await sleepUnlessCancelled(waitMs)
           run.waitingUntil = null
           if (run.cancelled) break
           // 같은 속도로 돌아가면 또 걸린다 — 재개할 땐 느려진다.
@@ -358,7 +371,7 @@ async function runSyncLoopInner(ids, myGen) {
     run.done++
     pushUpdate()
     if (!run.cancelled) setBadge(String(Math.round((run.done / run.total) * 100)), badgeAccentFor(run.service))
-    if (!run.cancelled && i < ids.length - 1) await sleep(delay)
+    if (!run.cancelled && i < ids.length - 1) await sleepUnlessCancelled(delay)
   }
 
   run.running = false
@@ -386,6 +399,9 @@ function handleSyncStart(req, sendResponse) {
 function handleSyncCancel(sendResponse) {
   if (run.running) {
     run.cancelled = true
+    // 요청 제한 대기 중이었다면 그 표시도 같이 지운다 — 취소를 눌렀는데 "62초 기다렸다가
+    // 이어서 받아요"가 남아 있으면 취소가 안 먹은 것처럼 보인다.
+    run.waitingUntil = null
     clearBadge() // 사용자가 방금 눌렀으니 뱃지는 바로 지운다(루프는 진행 중이던 항목만 마저 끝내고 곧 멈춘다)
   }
   sendResponse(publicState())
