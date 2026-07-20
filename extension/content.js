@@ -7,6 +7,20 @@
 if (!window.__wcdContentInjected) {
   window.__wcdContentInjected = true
 
+  // 서비스 API가 응답을 안 주면 요청이 매달려 팝업까지 멈춘다 — 모든 fetch에 상한을 둔다.
+  async function fetchT(url, opts, ms) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), ms || 15000)
+    try {
+      return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw new Error(`요청 시간 초과: ${url}`)
+      throw e
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   function detectService() {
     const h = location.hostname
     if (h === 'claude.ai') {
@@ -60,7 +74,7 @@ if (!window.__wcdContentInjected) {
   // ───────────────────── ChatGPT ─────────────────────
 
   async function chatgptToken() {
-    const res = await fetch('/api/auth/session', { credentials: 'include' })
+    const res = await fetchT('/api/auth/session', { credentials: 'include' })
     if (!res.ok) throw new Error(`chatgpt 세션 조회 실패: ${res.status}`)
     const data = await res.json()
     if (!data || !data.accessToken) throw new Error('accessToken을 찾을 수 없어요(로그인 상태를 확인하세요)')
@@ -74,7 +88,7 @@ if (!window.__wcdContentInjected) {
     const MAX_PAGES = 10
     for (let page = 0; page < MAX_PAGES; page++) {
       const offset = page * PAGE_SIZE
-      const res = await fetch(`/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`, {
+      const res = await fetchT(`/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`, {
         credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       })

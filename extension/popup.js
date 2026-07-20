@@ -54,7 +54,12 @@ function syncState() {
 }
 
 async function sendToTab(msg) {
-  const res = await chrome.tabs.sendMessage(state.tabId, msg)
+  // 콘텐츠 스크립트가 응답하지 않으면(fetch가 매달리는 등) await가 영원히 pending이 되어
+  // try/catch로도 못 잡는다 — 타임아웃으로 반드시 실패하게 만든다.
+  const res = await Promise.race([
+    chrome.tabs.sendMessage(state.tabId, msg),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`페이지 응답 시간 초과(25초): ${msg.cmd}`)), 25000)),
+  ])
   if (res && typeof res === 'object' && '__error' in res) throw new Error(res.__error)
   return res
 }
@@ -87,6 +92,27 @@ function updateActionButtons() {
 }
 
 // ───────────────────── 목록 렌더 ─────────────────────
+
+// 목록을 불러오는 동안 스켈레톤을 보여준다 — 빈 화면은 "고장"으로 읽히기 때문이다.
+function renderLoading() {
+  countEl.textContent = '…'
+  listEl.innerHTML = ''
+  for (let i = 0; i < 3; i++) {
+    const li = document.createElement('li')
+    li.className = 'skel'
+    const meta = document.createElement('div')
+    meta.className = 'meta'
+    const b1 = document.createElement('div')
+    b1.className = 'bar'
+    b1.style.width = ['78%', '62%', '85%'][i]
+    const b2 = document.createElement('div')
+    b2.className = 'bar cmd-bar'
+    meta.appendChild(b1)
+    meta.appendChild(b2)
+    li.appendChild(meta)
+    listEl.appendChild(li)
+  }
+}
 
 function renderList() {
   listEl.innerHTML = ''
@@ -267,6 +293,7 @@ btnToggleAll.addEventListener('click', onToggleAll)
 // 모르고 목록도 안 뜨는 상황을 피할 수 있다). 그래서 각 await를 자기 try/catch로 감싸고,
 // 실패 사유를 모아뒀다가 마지막에 한 번에 #msg로 보여준다.
 async function init() {
+  renderLoading()
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   state.tabId = tab.id
 
