@@ -25,11 +25,12 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 .svc{font-weight:600;letter-spacing:-0.01em}
 .host{margin-left:auto;font-size:11px;color:var(--ink2)}
 /* 설정·도움말은 상시 보이되 시선을 뺏지 않게 — 테두리만 있는 작은 원 */
-.iconbtn{flex:none;width:17px;height:17px;padding:0;border-radius:50%;
+.iconbtn{flex:none;width:24px;height:24px;padding:0;border-radius:50%;
   border:1px solid var(--line);background:none;color:var(--ink3);
-  font-family:inherit;font-size:10px;line-height:1;cursor:pointer;
-  transition:color .15s,border-color .15s}
-.iconbtn:hover{color:var(--ink);border-color:var(--ink3)}
+  font-family:inherit;font-size:12px;line-height:1;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:color .15s,border-color .15s,background .15s}
+.iconbtn:hover{color:var(--ink);border-color:var(--ink3);background:var(--line-soft)}
 [data-host="off"] .host{color:#D14343}
 
 /* 주 액션 */
