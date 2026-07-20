@@ -89,6 +89,7 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;
   border-top:1px solid var(--line);background:var(--surface)}
 .progress{display:flex;align-items:center;gap:7px;flex:1;min-width:0}
+.progress[hidden]{display:none} /* 클래스 규칙이 UA의 [hidden] 기본값을 이겨서 명시해야 한다 */
 .track{flex:1;height:4px;background:var(--line-soft);border-radius:2px;overflow:hidden}
 .fill{height:100%;width:0;background:var(--accent);transition:width .25s ease}
 .num{font-family:var(--mono);font-size:10.5px;color:var(--ink2);
