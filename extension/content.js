@@ -32,6 +32,10 @@ if (!window.__wcdContentInjected) {
   // 아직 힘든 상태에서 바로 다시 두드리는 셈이라 2000ms로 늘렸다. 429는 아예 재시도하지
   // 않고(아래 rateLimitReason 참고) 즉시 중단한다.
   const LIST_RETRY_WAIT = 2000
+  // 대화 본문 조회용 타임아웃. background의 sendMessage 감시(60초)보다 먼저 터져야
+  // "요청 시간 초과"라는 제대로 된 이유가 전달된다 — 바깥이 먼저 터지면 무슨 일이 있었는지
+  // 알 수 없는 채로 끊긴다. 본문은 목록보다 무거울 수 있어 목록 타임아웃보다는 넉넉히 준다.
+  const PAYLOAD_TIMEOUT = 45000
 
   // 429(또는 rate-limit 문구가 담긴 403)를 감지한다 — 계정이 이미 rate limit에 걸린
   // 상태에서 재시도는 상황을 악화시킬 뿐이라, 이건 "다시 시도"가 아니라 "멈추라"는
@@ -83,7 +87,7 @@ if (!window.__wcdContentInjected) {
     // claude는 단건 요청이라 페이지가 없다 — 실패하면 그냥 던진다(에러 메시지가 이미 명확하다).
     // partial은 항상 false로, 다른 서비스와 반환 모양만 맞춘다.
     const org = claudeOrgId()
-    const res = await fetch(`/api/organizations/${org}/chat_conversations`, { credentials: 'include' })
+    const res = await fetchT(`/api/organizations/${org}/chat_conversations`, { credentials: 'include' }, LIST_PAGE_TIMEOUT)
     if (!res.ok) throw new Error(`claude 목록 조회 실패: ${res.status}`)
     const data = await res.json()
     // updatedAt: 팝업이 "이미 최신이면 다시 안 받기"를 판단하는 근거(ISO 문자열).
@@ -99,9 +103,10 @@ if (!window.__wcdContentInjected) {
     const org = claudeOrgId()
     const convId = id || detectService().id
     if (!convId) throw new Error('현재 열린 대화를 찾을 수 없어요')
-    const res = await fetch(
+    const res = await fetchT(
       `/api/organizations/${org}/chat_conversations/${convId}?tree=True&rendering_mode=raw`,
       { credentials: 'include' },
+      PAYLOAD_TIMEOUT,
     )
     const rl = await rateLimitReason(res)
     if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
@@ -187,10 +192,10 @@ if (!window.__wcdContentInjected) {
     const token = await chatgptToken()
     const convId = id || detectService().id
     if (!convId) throw new Error('현재 열린 대화를 찾을 수 없어요')
-    const res = await fetch(`/backend-api/conversation/${convId}`, {
+    const res = await fetchT(`/backend-api/conversation/${convId}`, {
       credentials: 'include',
       headers: { Authorization: `Bearer ${token}` },
-    })
+    }, PAYLOAD_TIMEOUT)
     const rl = await rateLimitReason(res)
     if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
     if (!res.ok) throw new Error(`chatgpt 대화 조회 실패: ${res.status}`)
@@ -217,8 +222,8 @@ if (!window.__wcdContentInjected) {
     return { at: at[1], bl: bl[1], fsid: fsid[1] }
   }
 
-  // ms를 주면(목록 페이지네이션 등) fetchT로 타임아웃을 걸고, 안 주면(payload 등 기존 호출부)
-  // 원래대로 무제한 fetch — 이 함수 하나로 쓰는 다른 호출부의 동작을 바꾸지 않기 위해서다.
+  // ms를 안 주면 본문 조회 기준으로 타임아웃을 건다 — 무제한 fetch를 하나라도 남겨두면
+  // 그 경로에서 응답이 안 올 때 호출부가 에러도 없이 영영 매달린다.
   async function geminiRpc(rpcid, inner, ms) {
     const { at, bl, fsid } = geminiTokens()
     const reqid = Math.floor(100000 + Math.random() * 900000)
@@ -234,7 +239,7 @@ if (!window.__wcdContentInjected) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
       body,
     }
-    const res = ms ? await fetchT(url, opts, ms) : await fetch(url, opts)
+    const res = await fetchT(url, opts, ms || PAYLOAD_TIMEOUT)
     const rl = await rateLimitReason(res)
     if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
     if (!res.ok) throw new Error(`gemini rpc(${rpcid}) 실패: ${res.status}`)
@@ -332,7 +337,7 @@ if (!window.__wcdContentInjected) {
     let token = null
     for (let page = 0; page < SAFETY_PAGES; page++) {
       const inner = page === 0 ? JSON.stringify([cid]) : JSON.stringify([cid, null, token])
-      rawTexts.push(await geminiRpc('hNvQHb', inner))
+      rawTexts.push(await geminiRpc('hNvQHb', inner, PAYLOAD_TIMEOUT))
       const parsed = parseGeminiEnvelope(rawTexts[rawTexts.length - 1], 'hNvQHb')
       const prev = token
       token = parsed && typeof parsed[1] === 'string' && parsed[1] ? parsed[1] : null

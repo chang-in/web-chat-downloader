@@ -147,8 +147,35 @@ function pushUpdate() {
   })
 }
 
+// 대화 본문 요청은 그 탭의 콘텐츠 스크립트를 거친다. 그런데 Chrome은 뒤로 밀린 탭을 강하게
+// 조절해서, 다른 탭으로 이동한 순간 응답이 영영 안 오는 경우가 있다(실측: 도움말을 새 탭으로
+// 열자 동기화가 그 자리에 얼어붙었다). 타임아웃이 없으면 이 await가 풀리지 않아 루프가
+// 에러도 없이 멈춘다 — 재시도도 실패 집계도 안 되고 뱃지만 마지막 퍼센트에 남는다.
+const PAYLOAD_TIMEOUT_MS = 60000
+// 목록 조회 감시. content.js가 페이지마다 20초 타임아웃에 재시도 한 번을 쓰고, 페이지 사이
+// 간격까지 있으니 대화가 많은 계정에서는 전체가 꽤 길어질 수 있다 — 넉넉히 준다.
+const LIST_TIMEOUT_MS = 180000
+
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error(message)
+      err.timedOut = true
+      reject(err)
+    }, ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
 async function fetchPayload(id) {
-  const res = await chrome.tabs.sendMessage(runTabId, { cmd: 'payload', id })
+  const res = await withTimeout(
+    chrome.tabs.sendMessage(runTabId, { cmd: 'payload', id }),
+    PAYLOAD_TIMEOUT_MS,
+    '탭이 응답하지 않아요',
+  )
   if (res && typeof res === 'object' && '__error' in res) {
     const err = new Error(res.__error)
     if (res.__rateLimited) err.rateLimited = true
@@ -288,6 +315,12 @@ async function runSyncLoopInner(ids, myGen) {
         run.rateLimited = true // 자동 동기화가 이 값을 보고 다음 주기를 건너뛸지 판단한다
         break
       }
+      // 타임아웃도 항목 하나의 실패로 넘기지 않는다 — 탭이 조절되거나 얼어붙은 상태라면
+      // 남은 항목도 전부 같은 시간만큼 기다리다 실패한다. 즉시 멈추고 이유를 알린다.
+      if (e && e.timedOut) {
+        run.lastError = '탭이 응답하지 않아 중단했어요 — 그 탭을 앞에 둔 채로 다시 시도해주세요'
+        break
+      }
       // 그 외 항목 하나의 실패는 치명적이지 않다 — 원래 popup.js의 syncItems()와 동일하게
       // 계속 진행하고 마지막에 성공/실패 개수로 요약한다.
       run.failed++
@@ -399,7 +432,13 @@ async function pickAutoSyncTabs() {
 // 배열) — rate-limit이면 reason이 "rate-limited"(또는 "rate-limited:60") 형태로 온다.
 async function fetchAutoSyncIds(tabId, service, scope) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] })
-  const res = await chrome.tabs.sendMessage(tabId, { cmd: 'list' })
+  // 팝업과 달리 자동 동기화에는 바깥 감시자가 없다 — 여기서 안 걸어두면 탭이 응답을 멈췄을 때
+  // 주기 하나가 통째로 매달린 채 다음 알람까지 아무 일도 못 한다.
+  const res = await withTimeout(
+    chrome.tabs.sendMessage(tabId, { cmd: 'list' }),
+    LIST_TIMEOUT_MS,
+    '탭이 목록 요청에 응답하지 않아요',
+  )
   const listResult = Array.isArray(res) ? { items: res, partial: false } : res || { items: [], partial: false }
   if (listResult.reason && /^rate-limited/.test(listResult.reason)) {
     const err = new Error(rateLimitMessage(listResult.reason, service))
