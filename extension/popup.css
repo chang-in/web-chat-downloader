@@ -30,6 +30,7 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
   font-family:inherit;font-size:15px;line-height:1;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
   transition:color .15s,border-color .15s,background .15s}
+#btn-help{font-size:15px} /* 텍스트 물음표 — SVG가 아니라 글자 크기로 맞춘다 */
 .iconbtn svg{display:block} /* inline SVG의 baseline 여백 제거 — 원 정중앙에 오게 */
 .iconbtn:hover{color:var(--ink);border-color:var(--ink3);background:var(--line-soft)}
 [data-host="off"] .host{color:#D14343}
