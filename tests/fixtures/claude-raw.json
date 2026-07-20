@@ -13,6 +13,20 @@
       "sender": "assistant",
       "text": "반가워",
       "created_at": "2026-07-01T00:00:01Z"
+    },
+    {
+      "sender": "assistant",
+      "text": "",
+      "content": [
+        { "type": "thinking", "thinking": "사용자 의도를 분석하는 중..." },
+        { "type": "text", "text": "실제 답변" }
+      ],
+      "created_at": "2026-07-01T00:00:02Z"
+    },
+    {
+      "sender": "assistant",
+      "text": "이건 실제 텍스트야\n\n```\nThis block is not supported on your current device yet.\n```",
+      "created_at": "2026-07-01T00:00:03Z"
     }
   ]
 }
