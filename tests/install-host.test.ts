@@ -103,7 +103,10 @@ describe('findExtensionIds', () => {
 })
 
 describe('scanChromeProfilesForExtension', () => {
-  function makeUserDataDir(profiles: Record<string, unknown>): string {
+  function makeUserDataDir(
+    profiles: Record<string, unknown>,
+    secureProfiles?: Record<string, unknown>,
+  ): string {
     const userDataDir = mkdtempSync(join(tmpdir(), 'wcd-chrome-userdata-'))
     for (const [profile, prefsJson] of Object.entries(profiles)) {
       const profileDir = join(userDataDir, profile)
@@ -111,6 +114,15 @@ describe('scanChromeProfilesForExtension', () => {
       if (prefsJson === undefined) continue // Preferences 파일 자체가 없는 프로필을 흉내
       const content = typeof prefsJson === 'string' ? prefsJson : JSON.stringify(prefsJson)
       writeFileSync(join(profileDir, 'Preferences'), content)
+    }
+    if (secureProfiles) {
+      for (const [profile, secureJson] of Object.entries(secureProfiles)) {
+        const profileDir = join(userDataDir, profile)
+        mkdirSync(profileDir, { recursive: true })
+        if (secureJson === undefined) continue
+        const content = typeof secureJson === 'string' ? secureJson : JSON.stringify(secureJson)
+        writeFileSync(join(profileDir, 'Secure Preferences'), content)
+      }
     }
     return userDataDir
   }
@@ -153,5 +165,37 @@ describe('scanChromeProfilesForExtension', () => {
       Default: { extensions: { settings: { otherid: { path: '/somewhere/else' } } } },
     })
     expect(scanChromeProfilesForExtension(extensionDir, { userDataDir })).toEqual([])
+  })
+
+  it('Secure Preferences 파일에서 매치하면 그 id와 프로필명을 반환한다', () => {
+    const extensionDir = '/Users/x/repo/extension'
+    const userDataDir = makeUserDataDir(
+      { Default: undefined }, // Preferences가 없거나 비어있음
+      { Default: { extensions: { settings: { secureid: { path: extensionDir } } } } }, // Secure Preferences에만 있음
+    )
+    const result = scanChromeProfilesForExtension(extensionDir, { userDataDir })
+    expect(result).toEqual([{ id: 'secureid', profiles: ['Default'] }])
+  })
+
+  it('Preferences와 Secure Preferences 모두에서 찾으면 결과는 dedupe된다', () => {
+    const extensionDir = '/Users/x/repo/extension'
+    const userDataDir = makeUserDataDir(
+      { Default: { extensions: { settings: { abcid: { path: extensionDir } } } } },
+      { Default: { extensions: { settings: { abcid: { path: extensionDir } } } } }, // 같은 id가 양쪽 파일에
+    )
+    const result = scanChromeProfilesForExtension(extensionDir, { userDataDir })
+    expect(result).toEqual([{ id: 'abcid', profiles: ['Default'] }])
+  })
+
+  it('Preferences와 Secure Preferences에서 다른 id를 찾으면 모두 반환한다', () => {
+    const extensionDir = '/Users/x/repo/extension'
+    const userDataDir = makeUserDataDir(
+      { Default: { extensions: { settings: { id1: { path: extensionDir } } } } },
+      { Default: { extensions: { settings: { id2: { path: extensionDir } } } } },
+    )
+    const result = scanChromeProfilesForExtension(extensionDir, { userDataDir })
+    expect(result).toHaveLength(2)
+    const ids = result.map((r) => r.id).sort()
+    expect(ids).toEqual(['id1', 'id2'])
   })
 })
