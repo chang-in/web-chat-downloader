@@ -32,9 +32,10 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 .btn{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r);
   background:var(--surface);color:var(--ink);font-family:inherit;font-size:13px;
   font-weight:550;cursor:pointer;transition:background .15s,border-color .15s}
-.btn:hover:not(:disabled){background:var(--line-soft)}
+/* primary는 제외 — .btn:hover가 .btn.primary보다 특이성이 높아 코랄 배경을 덮어버린다 */
+.btn:not(.primary):hover:not(:disabled){background:var(--line-soft)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.primary:hover:not(:disabled){filter:brightness(1.06)}
+.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.08)}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.small{flex:none;padding:7px 11px;font-size:12px}
 .ghost{border:0;background:none;color:var(--ink2);font-family:inherit;font-size:11px;
