@@ -107,3 +107,7 @@ npx tsc --noEmit  # 타입 체크
 Native Messaging 프레이밍(4바이트 little-endian uint32 길이 + UTF-8 JSON)에 맞춰
 직접 바이트를 stdin에 넣어야 한다. `src/native-host.ts`의 `encodeMessage`/`decodeMessages`가
 그 프레이밍을 구현·테스트한다(`tests/native-host.test.ts`).
+
+## 라이선스
+
+MIT — 자유롭게 쓰고 고치고 배포할 수 있습니다. 자세한 내용은 [LICENSE](./LICENSE)를 보세요.
