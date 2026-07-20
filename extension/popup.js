@@ -56,9 +56,13 @@ function syncState() {
 async function sendToTab(msg) {
   // 콘텐츠 스크립트가 응답하지 않으면(fetch가 매달리는 등) await가 영원히 pending이 되어
   // try/catch로도 못 잡는다 — 타임아웃으로 반드시 실패하게 만든다.
+  //
+  // list는 페이지네이션 내부에서 페이지당 최대 20초 + 재시도 대기 0.6초 + 재시도 20초까지
+  // 걸릴 수 있어(약 40.6초) 여기 외곽 타임아웃은 그보다 넉넉히 커야 한다 — 그래야 항상
+  // content.js 안쪽 타임아웃이 먼저 터져서 partial 응답으로 빠져나올 여유가 생긴다.
   const res = await Promise.race([
     chrome.tabs.sendMessage(state.tabId, msg),
-    new Promise((_, rej) => setTimeout(() => rej(new Error(`페이지 응답 시간 초과(25초): ${msg.cmd}`)), 25000)),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`페이지 응답 시간 초과(50초): ${msg.cmd}`)), 50000)),
   ])
   if (res && typeof res === 'object' && '__error' in res) throw new Error(res.__error)
   return res
@@ -340,10 +344,17 @@ async function init() {
     }
   }
 
-  // 4. 대화 목록
+  // 4. 대화 목록 — content.js는 { items, partial, reason? } 모양을 돌려준다(구버전이 주입돼
+  // 배열을 그대로 줄 수도 있으니 방어적으로 둘 다 받는다). partial이면 몇 페이지 실패로
+  // 일부만 불러온 것 — 던지지 않았으니 실패 처리 대신 안내 메시지만 failures에 얹는다.
   if (state.service) {
     try {
-      state.items = await sendToTab({ cmd: 'list' })
+      const res = await sendToTab({ cmd: 'list' })
+      const listResult = Array.isArray(res) ? { items: res, partial: false } : res
+      state.items = (listResult && listResult.items) || []
+      if (listResult && listResult.partial) {
+        failures.push(`일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져올 수 있어요`)
+      }
     } catch (e) {
       console.error('[wcd] 목록 조회 실패', e)
       state.items = []

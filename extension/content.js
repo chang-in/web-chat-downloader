@@ -21,6 +21,15 @@ if (!window.__wcdContentInjected) {
     }
   }
 
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms))
+  }
+
+  // 페이지네이션 fetch 전용 타임아웃 — popup.js의 sendToTab 외곽 타임아웃(전체 list 호출 감시)보다
+  // 반드시 먼저 터져야, 재시도 한 번을 쓰고도 그 안에서 partial 응답으로 빠져나올 수 있다.
+  const LIST_PAGE_TIMEOUT = 20000
+  const LIST_RETRY_WAIT = 600
+
   function detectService() {
     const h = location.hostname
     if (h === 'claude.ai') {
@@ -52,11 +61,14 @@ if (!window.__wcdContentInjected) {
   }
 
   async function claudeList() {
+    // claude는 단건 요청이라 페이지가 없다 — 실패하면 그냥 던진다(에러 메시지가 이미 명확하다).
+    // partial은 항상 false로, 다른 서비스와 반환 모양만 맞춘다.
     const org = claudeOrgId()
     const res = await fetch(`/api/organizations/${org}/chat_conversations`, { credentials: 'include' })
     if (!res.ok) throw new Error(`claude 목록 조회 실패: ${res.status}`)
     const data = await res.json()
-    return (Array.isArray(data) ? data : []).map((c) => ({ externalId: c.uuid, title: c.name || '' }))
+    const items = (Array.isArray(data) ? data : []).map((c) => ({ externalId: c.uuid, title: c.name || '' }))
+    return { items, partial: false }
   }
 
   async function claudePayload(id) {
@@ -84,21 +96,43 @@ if (!window.__wcdContentInjected) {
   async function chatgptList() {
     const token = await chatgptToken()
     const items = []
+    const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     const PAGE_SIZE = 28
     const MAX_PAGES = 10
     for (let page = 0; page < MAX_PAGES; page++) {
       const offset = page * PAGE_SIZE
-      const res = await fetchT(`/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error(`chatgpt 목록 조회 실패: ${res.status}`)
-      const data = await res.json()
+      const url = `/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`
+
+      // 대화 200개+ 계정에서 뒤쪽 페이지가 타임아웃/5xx로 실패하는 걸 실측했다 — 한 번만
+      // 재시도하고, 그래도 안 되면 지금까지 모은 페이지는 버리지 않고 partial로 돌려준다.
+      let data = null
+      let ok = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetchT(
+            url,
+            { credentials: 'include', headers: { Authorization: `Bearer ${token}` } },
+            LIST_PAGE_TIMEOUT,
+          )
+          if (!res.ok) throw new Error(`chatgpt 목록 조회 실패: ${res.status}`)
+          data = await res.json()
+          ok = true
+          break
+        } catch (e) {
+          if (attempt === 0) await sleep(LIST_RETRY_WAIT)
+        }
+      }
+      if (!ok) return { items, partial: true, reason: `페이지 ${page + 1} 조회 실패` }
+
       const pageItems = (data && data.items) || []
-      for (const it of pageItems) items.push({ externalId: it.id, title: it.title || '' })
+      for (const it of pageItems) {
+        if (seen.has(it.id)) continue
+        seen.add(it.id)
+        items.push({ externalId: it.id, title: it.title || '' })
+      }
       if (pageItems.length < PAGE_SIZE) break
     }
-    return items
+    return { items, partial: false }
   }
 
   async function chatgptPayload(id) {
@@ -133,7 +167,9 @@ if (!window.__wcdContentInjected) {
     return { at: at[1], bl: bl[1], fsid: fsid[1] }
   }
 
-  async function geminiRpc(rpcid, inner) {
+  // ms를 주면(목록 페이지네이션 등) fetchT로 타임아웃을 걸고, 안 주면(payload 등 기존 호출부)
+  // 원래대로 무제한 fetch — 이 함수 하나로 쓰는 다른 호출부의 동작을 바꾸지 않기 위해서다.
+  async function geminiRpc(rpcid, inner, ms) {
     const { at, bl, fsid } = geminiTokens()
     const reqid = Math.floor(100000 + Math.random() * 900000)
     const url =
@@ -142,12 +178,13 @@ if (!window.__wcdContentInjected) {
     const body = new URLSearchParams()
     body.set('f.req', JSON.stringify([[[rpcid, inner, null, 'generic']]]))
     body.set('at', at)
-    const res = await fetch(url, {
+    const opts = {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
       body,
-    })
+    }
+    const res = ms ? await fetchT(url, opts, ms) : await fetch(url, opts)
     if (!res.ok) throw new Error(`gemini rpc(${rpcid}) 실패: ${res.status}`)
     return res.text()
   }
@@ -175,24 +212,42 @@ if (!window.__wcdContentInjected) {
 
   async function geminiList() {
     const rows = []
+    const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     let nextToken = null
     const MAX_PAGES = 10
     for (let page = 0; page < MAX_PAGES; page++) {
       const inner = page === 0 ? '[]' : JSON.stringify([null, nextToken])
-      const text = await geminiRpc('MaZiqc', inner)
+
+      // chatgpt와 같은 노출: 뒤쪽 페이지가 실패하면 한 번 재시도하고, 그래도 안 되면
+      // 지금까지 모은 페이지는 버리지 않고 partial로 돌려준다.
+      let text = null
+      let ok = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          text = await geminiRpc('MaZiqc', inner, LIST_PAGE_TIMEOUT)
+          ok = true
+          break
+        } catch (e) {
+          if (attempt === 0) await sleep(LIST_RETRY_WAIT)
+        }
+      }
+      if (!ok) return { items: rows, partial: true, reason: `페이지 ${page + 1} 조회 실패` }
+
       const parsed = parseGeminiEnvelope(text, 'MaZiqc')
       const pageRows = parsed && Array.isArray(parsed[2]) ? parsed[2] : []
       for (const r of pageRows) {
         const id = normalizeCid(r[0])
         const title = r[1] || ''
         geminiTitleCache.set(id, title)
+        if (seen.has(id)) continue
+        seen.add(id)
         rows.push({ externalId: id, title })
       }
       nextToken = parsed && typeof parsed[1] === 'string' && parsed[1] ? parsed[1] : null
       if (!nextToken) break
       await new Promise((r) => setTimeout(r, 400))
     }
-    return rows
+    return { items: rows, partial: false }
   }
 
   function geminiPageTitle() {
@@ -217,7 +272,7 @@ if (!window.__wcdContentInjected) {
       if (service === 'claude') return claudeList()
       if (service === 'chatgpt') return chatgptList()
       if (service === 'gemini') return geminiList()
-      return []
+      return { items: [], partial: false }
     }
     if (req.cmd === 'payload') {
       if (service === 'claude') return claudePayload(req.id)
