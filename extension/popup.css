@@ -55,6 +55,7 @@ body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
 .listhead{display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px 6px;font-size:11px;color:var(--ink2);letter-spacing:.02em}
 .lbl b{color:var(--ink);font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:11px}
+.headactions{display:flex;gap:2px;align-items:center}
 
 /* 목록 */
 .list{list-style:none;overflow-y:auto;flex:1;padding:0 8px 8px}
