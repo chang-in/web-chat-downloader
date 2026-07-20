@@ -28,7 +28,26 @@ if (!window.__wcdContentInjected) {
   // 페이지네이션 fetch 전용 타임아웃 — popup.js의 sendToTab 외곽 타임아웃(전체 list 호출 감시)보다
   // 반드시 먼저 터져야, 재시도 한 번을 쓰고도 그 안에서 partial 응답으로 빠져나올 수 있다.
   const LIST_PAGE_TIMEOUT = 20000
-  const LIST_RETRY_WAIT = 600
+  // 429가 아닌 실패(타임아웃/5xx/네트워크)만 이 대기 후 한 번 재시도한다 — 600ms는 서비스가
+  // 아직 힘든 상태에서 바로 다시 두드리는 셈이라 2000ms로 늘렸다. 429는 아예 재시도하지
+  // 않고(아래 rateLimitReason 참고) 즉시 중단한다.
+  const LIST_RETRY_WAIT = 2000
+
+  // 429(또는 rate-limit 문구가 담긴 403)를 감지한다 — 계정이 이미 rate limit에 걸린
+  // 상태에서 재시도는 상황을 악화시킬 뿐이라, 이건 "다시 시도"가 아니라 "멈추라"는
+  // 신호로 취급한다. Retry-After가 숫자(초)면 반환값에 붙여서 호출부가 안내 문구에 쓸 수
+  // 있게 한다.
+  async function rateLimitReason(res) {
+    let hit = res.status === 429
+    if (!hit && res.status === 403) {
+      let text = ''
+      try { text = await res.text() } catch (e) { /* 무시하고 일반 실패로 처리 */ }
+      hit = /rate.?limit|too many requests/i.test(text)
+    }
+    if (!hit) return null
+    const ra = res.headers.get('retry-after')
+    return ra && /^\d+$/.test(ra) ? `rate-limited:${ra}` : 'rate-limited'
+  }
 
   function detectService() {
     const h = location.hostname
@@ -79,6 +98,8 @@ if (!window.__wcdContentInjected) {
       `/api/organizations/${org}/chat_conversations/${convId}?tree=True&rendering_mode=raw`,
       { credentials: 'include' },
     )
+    const rl = await rateLimitReason(res)
+    if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
     if (!res.ok) throw new Error(`claude 대화 조회 실패: ${res.status}`)
     return res.json() // 서버(core/adapters/claude.ts)가 원본 그대로 감지·정규화한다
   }
@@ -99,12 +120,14 @@ if (!window.__wcdContentInjected) {
     const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     const PAGE_SIZE = 28
     const MAX_PAGES = 10
+    const PAGE_DELAY = 500 // 페이지 사이 간격 — 요청을 몰아치지 않게 해서 계정 rate limit을 피한다
     for (let page = 0; page < MAX_PAGES; page++) {
       const offset = page * PAGE_SIZE
       const url = `/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`
 
       // 대화 200개+ 계정에서 뒤쪽 페이지가 타임아웃/5xx로 실패하는 걸 실측했다 — 한 번만
       // 재시도하고, 그래도 안 되면 지금까지 모은 페이지는 버리지 않고 partial로 돌려준다.
+      // 단, 429는 재시도 대상이 아니다 — 즉시 멈추고 지금까지 모은 걸 partial로 돌려준다.
       let data = null
       let ok = false
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -114,6 +137,8 @@ if (!window.__wcdContentInjected) {
             { credentials: 'include', headers: { Authorization: `Bearer ${token}` } },
             LIST_PAGE_TIMEOUT,
           )
+          const rl = await rateLimitReason(res)
+          if (rl) return { items, partial: true, reason: rl }
           if (!res.ok) throw new Error(`chatgpt 목록 조회 실패: ${res.status}`)
           data = await res.json()
           ok = true
@@ -131,6 +156,7 @@ if (!window.__wcdContentInjected) {
         items.push({ externalId: it.id, title: it.title || '' })
       }
       if (pageItems.length < PAGE_SIZE) break
+      await sleep(PAGE_DELAY)
     }
     return { items, partial: false }
   }
@@ -143,6 +169,8 @@ if (!window.__wcdContentInjected) {
       credentials: 'include',
       headers: { Authorization: `Bearer ${token}` },
     })
+    const rl = await rateLimitReason(res)
+    if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
     if (!res.ok) throw new Error(`chatgpt 대화 조회 실패: ${res.status}`)
     return res.json() // 서버(core/adapters/chatgpt.ts)가 원본 그대로 감지·정규화한다
   }
@@ -185,6 +213,8 @@ if (!window.__wcdContentInjected) {
       body,
     }
     const res = ms ? await fetchT(url, opts, ms) : await fetch(url, opts)
+    const rl = await rateLimitReason(res)
+    if (rl) { const err = new Error(rl); err.rateLimited = true; throw err }
     if (!res.ok) throw new Error(`gemini rpc(${rpcid}) 실패: ${res.status}`)
     return res.text()
   }
@@ -219,7 +249,8 @@ if (!window.__wcdContentInjected) {
       const inner = page === 0 ? '[]' : JSON.stringify([null, nextToken])
 
       // chatgpt와 같은 노출: 뒤쪽 페이지가 실패하면 한 번 재시도하고, 그래도 안 되면
-      // 지금까지 모은 페이지는 버리지 않고 partial로 돌려준다.
+      // 지금까지 모은 페이지는 버리지 않고 partial로 돌려준다. 429는 재시도하지 않고
+      // 즉시 멈춘다(geminiRpc가 rateLimited 플래그를 붙여 던진다).
       let text = null
       let ok = false
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -228,6 +259,7 @@ if (!window.__wcdContentInjected) {
           ok = true
           break
         } catch (e) {
+          if (e && e.rateLimited) return { items: rows, partial: true, reason: e.message }
           if (attempt === 0) await sleep(LIST_RETRY_WAIT)
         }
       }
@@ -245,7 +277,7 @@ if (!window.__wcdContentInjected) {
       }
       nextToken = parsed && typeof parsed[1] === 'string' && parsed[1] ? parsed[1] : null
       if (!nextToken) break
-      await new Promise((r) => setTimeout(r, 400))
+      await sleep(400) // 페이지 사이 간격 — 계정 rate limit을 피한다
     }
     return { items: rows, partial: false }
   }
@@ -287,7 +319,10 @@ if (!window.__wcdContentInjected) {
     if (!req || !req.cmd) return false
     handleCommand(req)
       .then(sendResponse)
-      .catch((e) => sendResponse({ __error: e && e.message ? e.message : String(e) }))
+      // __rateLimited: background.js가 대량 동기화 중 이 에러를 받으면 남은 항목을 계속
+      // 시도하지 않고 전체 실행을 중단해야 하므로, 에러 메시지뿐 아니라 이 플래그도 함께
+      // 전달한다(에러가 메시지 채널을 넘어가며 평범한 객체로 직렬화돼 원래 속성을 잃는다).
+      .catch((e) => sendResponse({ __error: e && e.message ? e.message : String(e), __rateLimited: !!(e && e.rateLimited) }))
     return true // 비동기 응답이므로 채널을 열어둔다
   })
 }

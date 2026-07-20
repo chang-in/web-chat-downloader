@@ -9,6 +9,17 @@
 // sync-state 조회 한 번으로 항상 최신 진행률을 그릴 수 있다.
 
 const SVC_LABEL = { claude: 'claude.ai', chatgpt: 'chatgpt.com', gemini: 'gemini.google.com' }
+const SVC_FRIENDLY = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini' } // rate-limit 안내 문구용(도메인이 아니라 자연스러운 서비스명)
+
+// content.js가 돌려주는 rate-limit reason("rate-limited" 또는 "rate-limited:60")을 사용자
+// 문구로 바꾼다. background.js(대량 동기화 중단)도 같은 원인이면 같은 문구를 보여줘야
+// "이건 또 다른 문제인가?" 싶은 혼란이 없다.
+function rateLimitMessage(reason, service) {
+  const m = /^rate-limited:(\d+)$/.exec(reason || '')
+  const wait = m ? `${m[1]}초 뒤` : '1~2분 뒤'
+  const label = SVC_FRIENDLY[service] || '서비스'
+  return `${label}가 요청이 많다고 해서 멈췄어요 — ${wait} 다시 열어주세요`
+}
 
 const app = document.getElementById('app')
 const svcName = document.getElementById('svc-name')
@@ -57,12 +68,14 @@ async function sendToTab(msg) {
   // 콘텐츠 스크립트가 응답하지 않으면(fetch가 매달리는 등) await가 영원히 pending이 되어
   // try/catch로도 못 잡는다 — 타임아웃으로 반드시 실패하게 만든다.
   //
-  // list는 페이지네이션 내부에서 페이지당 최대 20초 + 재시도 대기 0.6초 + 재시도 20초까지
-  // 걸릴 수 있어(약 40.6초) 여기 외곽 타임아웃은 그보다 넉넉히 커야 한다 — 그래야 항상
-  // content.js 안쪽 타임아웃이 먼저 터져서 partial 응답으로 빠져나올 여유가 생긴다.
+  // list는 페이지네이션 내부에서 마지막 페이지가 실패할 경우 최대 20초 + 재시도 대기
+  // 2초 + 재시도 20초(약 42초)에, rate limit 방지용으로 넣은 페이지 사이 간격(최대 9번 ×
+  // 0.5초 = 4.5초)까지 더해 약 46.5초까지 걸릴 수 있다 — 여기 외곽 타임아웃은 그보다
+  // 넉넉히 커야 한다. 그래야 항상 content.js 안쪽 타임아웃이 먼저 터져서 partial 응답으로
+  // 빠져나올 여유가 생긴다.
   const res = await Promise.race([
     chrome.tabs.sendMessage(state.tabId, msg),
-    new Promise((_, rej) => setTimeout(() => rej(new Error(`페이지 응답 시간 초과(50초): ${msg.cmd}`)), 50000)),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`페이지 응답 시간 초과(65초): ${msg.cmd}`)), 65000)),
   ])
   if (res && typeof res === 'object' && '__error' in res) throw new Error(res.__error)
   return res
@@ -353,12 +366,18 @@ async function init() {
       const listResult = Array.isArray(res) ? { items: res, partial: false } : res
       state.items = (listResult && listResult.items) || []
       if (listResult && listResult.partial) {
-        // 하나도 못 받았으면 '일부만'이 아니라 실패다 — 문구를 상황에 맞게 나눈다.
-        failures.push(
-          state.items.length > 0
-            ? `일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져와요`
-            : '목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요',
-        )
+        if (listResult.reason && /^rate-limited/.test(listResult.reason)) {
+          // rate limit은 "일부만 불러왔어요"와 같은 급이 아니다 — 계정이 이미 서비스에서
+          // 제한을 먹은 상태이므로, 무시하고 넘어가면 안 되는 별도 문구로 보여준다.
+          failures.push(rateLimitMessage(listResult.reason, state.service))
+        } else {
+          // 하나도 못 받았으면 '일부만'이 아니라 실패다 — 문구를 상황에 맞게 나눈다.
+          failures.push(
+            state.items.length > 0
+              ? `일부만 불러왔어요 (${state.items.length}개) — 다시 열면 더 가져와요`
+              : '목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요',
+          )
+        }
       }
     } catch (e) {
       console.error('[wcd] 목록 조회 실패', e)

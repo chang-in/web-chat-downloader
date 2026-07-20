@@ -19,6 +19,7 @@ const HOST_NAME = 'com.web_chat_downloader.host'
 const BADGE_ACCENT = '#C4633F' // 브랜드 accent — 진행률 표시
 const BADGE_FAIL = '#D14343' // 실패/에러 표시
 const SYNC_DELAY_MS = 350 // 항목 사이 요청 간격(서비스 API에 대한 예의) — 기존 popup.js 값 그대로 이전
+const SVC_FRIENDLY = { chatgpt: 'ChatGPT', gemini: 'Gemini', claude: 'Claude' } // rate-limit 안내 문구용
 const DONE_BADGE_MS = 3000
 const FAIL_BADGE_MS = 5000
 const HOST_TIMEOUT_MS = 15000 // 응답도 disconnect도 안 오는(포트가 먹통이 된) 경우의 안전망 —
@@ -106,8 +107,22 @@ function pushUpdate() {
 
 async function fetchPayload(id) {
   const res = await chrome.tabs.sendMessage(runTabId, { cmd: 'payload', id })
-  if (res && typeof res === 'object' && '__error' in res) throw new Error(res.__error)
+  if (res && typeof res === 'object' && '__error' in res) {
+    const err = new Error(res.__error)
+    if (res.__rateLimited) err.rateLimited = true
+    throw err
+  }
   return res
+}
+
+// rate-limit reason("rate-limited" 또는 "rate-limited:60")을 popup.js와 같은 문구로 바꾼다 —
+// 목록 조회가 partial로 멈췄을 때(popup.js)와 대량 동기화가 중단됐을 때(여기) 사용자가 보는
+// 안내가 서로 다르게 읽히면 같은 원인인데 다른 문제처럼 보인다.
+function rateLimitMessage(reason, service) {
+  const m = /^rate-limited:(\d+)$/.exec(reason || '')
+  const wait = m ? `${m[1]}초 뒤` : '1~2분 뒤'
+  const label = SVC_FRIENDLY[service] || '서비스'
+  return `${label}가 요청이 많다고 해서 멈췄어요 — ${wait} 다시 열어주세요`
 }
 
 // 대량 동기화 루프 — 예전 popup.js의 syncItems()가 하던 일을 그대로 서비스 워커로 옮긴
@@ -224,7 +239,13 @@ async function runSyncLoopInner(ids, myGen) {
       const res = await captureOverPort(payload)
       if (!res || !res.ok) throw new Error((res && res.error) || '캡처 실패')
     } catch (e) {
-      // 항목 하나의 실패는 치명적이지 않다 — 원래 popup.js의 syncItems()와 동일하게
+      // 429는 항목 하나의 실패로 취급하지 않는다 — 계정이 이미 rate limit에 걸렸다는
+      // 뜻이라, 남은 항목을 계속 두드리면 상황만 악화된다. 즉시 전체 실행을 중단한다.
+      if (e && e.rateLimited) {
+        run.lastError = rateLimitMessage(e.message, run.service)
+        break
+      }
+      // 그 외 항목 하나의 실패는 치명적이지 않다 — 원래 popup.js의 syncItems()와 동일하게
       // 계속 진행하고 마지막에 성공/실패 개수로 요약한다.
       run.failed++
     }
