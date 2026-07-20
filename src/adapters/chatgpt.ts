@@ -1,4 +1,4 @@
-import type { NormalizedChat, NormalizedMessage } from './types'
+import type { NormalizedChat, NormalizedMessage } from './types.js'
 
 export const chatgptAdapter = {
   service: 'chatgpt' as const,

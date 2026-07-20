@@ -1,5 +1,5 @@
-import type { NormalizedChat, NormalizedMessage } from './types'
-import { parseBatchEnvelope } from '../core/batch-envelope'
+import type { NormalizedChat, NormalizedMessage } from './types.js'
+import { parseBatchEnvelope } from '../core/batch-envelope.js'
 
 // getPath는 중첩 배열에서 인덱스 경로를 안전하게 따라간다(중간이 null이면 undefined).
 function getPath(node: any, path: number[]): any {

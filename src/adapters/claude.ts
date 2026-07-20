@@ -1,4 +1,4 @@
-import type { NormalizedChat, NormalizedMessage } from './types'
+import type { NormalizedChat, NormalizedMessage } from './types.js'
 
 // Claude.ai가 클라이언트 미지원 블록에 넣는 플레이스홀더(순수 노이즈)를 제거한다:
 // (1) 플레이스홀더만/빈 ```펜스 블록 통째로, (2) 펜스 밖 단독 플레이스홀더 라인,
