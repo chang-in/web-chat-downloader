@@ -64,4 +64,40 @@ describe('geminiAdapter', () => {
     const c = geminiAdapter.normalize({ source: 'gemini', externalId: 'g4', title: 't', rawText: 'garbage' })
     expect(c.messages).toEqual([])
   })
+
+  // ── 이어받기(여러 페이지) ────────────────────────────────
+  // 한 응답에는 최근 50교환까지만 담기므로 content.js가 토큰으로 더 오래된 페이지를 받아
+  // rawTexts에 최신 → 오래된 순서로 넣어준다.
+  const turn = (q: string, a: string, ts: number) => [null, null, [[q]], [[[null, [a]]]], [ts]]
+  const page = (turns: unknown[], nextToken: string | null = null) => {
+    const line = JSON.stringify([['wrb.fr', 'hNvQHb', JSON.stringify([turns, nextToken]), null, null, 'generic']])
+    return `)]}'\n\n${Buffer.byteLength(line, 'utf8')}\n${line}\n`
+  }
+
+  it('rawTexts 여러 장을 이어붙여 전체를 시간순으로 복원', () => {
+    const newest = page([turn('4번', '4답', 1700000030), turn('3번', '3답', 1700000020)], 'tok')
+    const older = page([turn('2번', '2답', 1700000010), turn('1번', '1답', 1700000000)])
+    const c = geminiAdapter.normalize({
+      source: 'gemini', externalId: 'g5', title: 't',
+      rawText: newest, rawTexts: [newest, older], // 최신 페이지가 앞
+    })
+    expect(c.messages.map(m => m.text)).toEqual([
+      '1번', '1답', '2번', '2답', '3번', '3답', '4번', '4답',
+    ])
+  })
+
+  it('rawTexts가 없으면 rawText 한 장으로 동작(구버전 payload 호환)', () => {
+    const only = page([turn('혼자', '혼자답', 1700000000)])
+    const c = geminiAdapter.normalize({ source: 'gemini', externalId: 'g6', title: 't', rawText: only })
+    expect(c.messages.map(m => m.text)).toEqual(['혼자', '혼자답'])
+  })
+
+  it('중간 페이지가 깨져도 나머지 페이지는 살린다', () => {
+    const good = page([turn('살아남음', '답', 1700000010)])
+    const c = geminiAdapter.normalize({
+      source: 'gemini', externalId: 'g7', title: 't',
+      rawText: good, rawTexts: [good, 'garbage'],
+    })
+    expect(c.messages.map(m => m.text)).toEqual(['살아남음', '답'])
+  })
 })

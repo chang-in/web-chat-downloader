@@ -119,9 +119,13 @@ if (!window.__wcdContentInjected) {
     const items = []
     const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     const PAGE_SIZE = 28
-    const MAX_PAGES = 10
+    // SAFETY_PAGES는 사용량 상한이 아니라 무한 루프 방지용이다. 정상 종료는 서버가 짧은
+    // 페이지를 돌려주는 것뿐이고, 여기까지 왔다면 그건 비정상이므로 조용히 끝내지 않고
+    // partial로 보고한다 — "데이터가 끝나서 멈춤"과 "내 한계에 걸려서 멈춤"은 다른 사건이다.
+    const SAFETY_PAGES = 500 // 28 × 500 = 14,000개
     const PAGE_DELAY = 500 // 페이지 사이 간격 — 요청을 몰아치지 않게 해서 계정 rate limit을 피한다
-    for (let page = 0; page < MAX_PAGES; page++) {
+    let reachedEnd = false
+    for (let page = 0; page < SAFETY_PAGES; page++) {
       const offset = page * PAGE_SIZE
       const url = `/backend-api/conversations?offset=${offset}&limit=${PAGE_SIZE}&order=updated`
 
@@ -155,8 +159,11 @@ if (!window.__wcdContentInjected) {
         seen.add(it.id)
         items.push({ externalId: it.id, title: it.title || '' })
       }
-      if (pageItems.length < PAGE_SIZE) break
+      if (pageItems.length < PAGE_SIZE) { reachedEnd = true; break }
       await sleep(PAGE_DELAY)
+    }
+    if (!reachedEnd) {
+      return { items, partial: true, reason: `안전 상한(${SAFETY_PAGES}페이지) 도달 — 대화가 더 남아 있을 수 있어요` }
     }
     return { items, partial: false }
   }
@@ -244,8 +251,11 @@ if (!window.__wcdContentInjected) {
     const rows = []
     const seen = new Set() // externalId 기준 dedupe — 페이지네이션 도중 대화가 앞뒤로 밀리면 겹칠 수 있다
     let nextToken = null
-    const MAX_PAGES = 10
-    for (let page = 0; page < MAX_PAGES; page++) {
+    // chatgptList와 같은 성격의 안전장치다(사용량 상한이 아님). 정상 종료는 nextToken이
+    // 없어지는 것뿐이고, 여기 걸리면 partial로 보고한다.
+    const SAFETY_PAGES = 500
+    let reachedEnd = false
+    for (let page = 0; page < SAFETY_PAGES; page++) {
       const inner = page === 0 ? '[]' : JSON.stringify([null, nextToken])
 
       // chatgpt와 같은 노출: 뒤쪽 페이지가 실패하면 한 번 재시도하고, 그래도 안 되면
@@ -275,9 +285,17 @@ if (!window.__wcdContentInjected) {
         seen.add(id)
         rows.push({ externalId: id, title })
       }
+      const prevToken = nextToken
       nextToken = parsed && typeof parsed[1] === 'string' && parsed[1] ? parsed[1] : null
-      if (!nextToken) break
+      if (!nextToken) { reachedEnd = true; break }
+      // 토큰이 그대로면 같은 페이지를 무한히 다시 받게 된다 — 서버 이상으로 보고 멈춘다.
+      if (nextToken === prevToken) {
+        return { items: rows, partial: true, reason: '페이지 토큰이 더 진행되지 않아요' }
+      }
       await sleep(400) // 페이지 사이 간격 — 계정 rate limit을 피한다
+    }
+    if (!reachedEnd) {
+      return { items: rows, partial: true, reason: `안전 상한(${SAFETY_PAGES}페이지) 도달 — 대화가 더 남아 있을 수 있어요` }
     }
     return { items: rows, partial: false }
   }
@@ -290,9 +308,26 @@ if (!window.__wcdContentInjected) {
     const rawId = id || detectService().id
     if (!rawId) throw new Error('현재 열린 대화를 찾을 수 없어요')
     const cid = normalizeCid(rawId)
-    const text = await geminiRpc('hNvQHb', JSON.stringify([cid]))
+
+    // hNvQHb 응답 한 번에는 최근 50교환까지만 담긴다. 응답의 [1]에 이어받기 토큰이 있으면
+    // 그걸로 더 오래된 턴을 계속 받아온다(실측: inner=[cid, null, token], 토큰이 사라지면 끝).
+    // 이걸 안 하면 50교환이 넘는 대화는 앞부분이 조용히 잘린 채로 저장된다.
+    const SAFETY_PAGES = 200 // 50교환 × 200 = 10,000교환
+    const rawTexts = []
+    let token = null
+    for (let page = 0; page < SAFETY_PAGES; page++) {
+      const inner = page === 0 ? JSON.stringify([cid]) : JSON.stringify([cid, null, token])
+      rawTexts.push(await geminiRpc('hNvQHb', inner))
+      const parsed = parseGeminiEnvelope(rawTexts[rawTexts.length - 1], 'hNvQHb')
+      const prev = token
+      token = parsed && typeof parsed[1] === 'string' && parsed[1] ? parsed[1] : null
+      if (!token || token === prev) break // 토큰이 없거나 그대로면 더 받을 게 없다
+      await sleep(400)
+    }
+
     const title = geminiTitleCache.get(cid) || geminiPageTitle()
-    return { source: 'gemini', externalId: cid, title, rawText: text } // core/adapters/gemini.ts가 감지·파싱
+    // rawText는 detect()·구버전 호환용으로 첫 페이지를 그대로 둔다.
+    return { source: 'gemini', externalId: cid, title, rawText: rawTexts[0], rawTexts } // core/adapters/gemini.ts가 감지·파싱
   }
 
   // ───────────────────── 디스패치 ─────────────────────
