@@ -30,7 +30,15 @@ const BADGE_ACCENT = '#C4633F' // service를 모를 때(run.service가 null 등)
 // 우연히 WCD_SERVICE_COLORS.claude와 같은 값이지만, 이건 서비스별 팔레트가 생기기 전부터
 // 있던 브랜드 accent라 개념이 다르다(팔레트가 바뀌어도 폴백은 안 바뀌어야 하므로 따로 둔다).
 const BADGE_FAIL = '#D14343' // 실패/에러 표시 — 절대 서비스별로 바뀌면 안 된다(색 자체가 "문제 발생" 신호)
-const SYNC_DELAY_MS = 350 // 항목 사이 요청 간격(서비스 API에 대한 예의) — 기존 popup.js 값 그대로 이전
+// 항목 사이 요청 간격(서비스 API에 대한 예의). ChatGPT는 350ms(초당 약 3건)에서 429가
+// 반복되는 걸 실측했다 — 서비스마다 인심이 다르므로 값도 따로 둔다.
+const SYNC_DELAY_MS = { default: 350, chatgpt: 1000 }
+const SYNC_DELAY_MAX_MS = 5000 // 429를 만나 속도를 늦출 때의 상한
+// 429는 "너 너무 빠르다"는 신호다. 서버가 Retry-After로 얼마나 기다리라고 알려주면 그만큼
+// 기다렸다가 같은 항목부터 이어서 받는다 — 중단하고 사람에게 떠넘기면, 사람이 다시 누르는
+// 시점은 대개 너무 이르거나 한참 늦다. 몇 번을 기다려도 계속 걸리면 그때 포기한다.
+const RATE_LIMIT_RETRIES = 3
+const RATE_LIMIT_DEFAULT_WAIT_MS = 60000
 const SVC_FRIENDLY = { chatgpt: 'ChatGPT', gemini: 'Gemini', claude: 'Claude' } // rate-limit 안내 문구용
 const DONE_BADGE_MS = 3000
 const FAIL_BADGE_MS = 5000
@@ -120,7 +128,9 @@ function idleRun() {
   // rateLimited: 이번 실행이 429로 중단됐는지 — 팝업은 안 쓰고(그쪽은 lastError 문구만
   // 보여주면 충분) 아래 자동 동기화가 "이 주기는 429였다"를 판별하는 데 쓴다. 기존
   // 필드는 그대로라 popup.js 쪽 계약은 안 바뀐다(추가 필드는 무시될 뿐이라 하위 호환).
-  return { running: false, service: null, total: 0, done: 0, failed: 0, cancelled: false, lastError: null, rateLimited: false }
+  // waitingUntil: 429를 만나 재개를 기다리는 중이면 그 시각(ms). 그 외에는 null —
+  // 팝업이 "멈춘 것"과 "기다리는 중"을 구분해 그리는 데 쓴다.
+  return { running: false, service: null, total: 0, done: 0, failed: 0, cancelled: false, lastError: null, rateLimited: false, waitingUntil: null }
 }
 
 let run = idleRun()
@@ -136,7 +146,7 @@ function publicState() {
 function beginRun(ids, service, tabId) {
   runGen++
   const myGen = runGen
-  run = { running: true, service: service || null, total: ids.length, done: 0, failed: 0, cancelled: false, lastError: null, rateLimited: false }
+  run = { running: true, service: service || null, total: ids.length, done: 0, failed: 0, cancelled: false, lastError: null, rateLimited: false, waitingUntil: null }
   runTabId = tabId
   return myGen
 }
@@ -293,6 +303,9 @@ async function runSyncLoopInner(ids, myGen) {
     return
   }
 
+  let delay = SYNC_DELAY_MS[run.service] || SYNC_DELAY_MS.default
+  let rateLimitWaits = 0
+
   for (let i = 0; i < ids.length; i++) {
     if (run.cancelled) break
 
@@ -309,8 +322,24 @@ async function runSyncLoopInner(ids, myGen) {
       if (!res || !res.ok) throw new Error((res && res.error) || '캡처 실패')
     } catch (e) {
       // 429는 항목 하나의 실패로 취급하지 않는다 — 계정이 이미 rate limit에 걸렸다는
-      // 뜻이라, 남은 항목을 계속 두드리면 상황만 악화된다. 즉시 전체 실행을 중단한다.
+      // 뜻이라, 남은 항목을 계속 두드리면 상황만 악화된다. 대신 서버가 알려준 만큼(또는
+      // 기본 대기) 기다렸다가 '같은 항목부터' 이어서 받는다. 몇 번을 기다려도 계속 걸리면
+      // 그때는 포기한다.
       if (e && e.rateLimited) {
+        if (rateLimitWaits < RATE_LIMIT_RETRIES && !run.cancelled) {
+          rateLimitWaits++
+          const m = /^rate-limited:(\d+)$/.exec(e.message || '')
+          const waitMs = m ? (Number(m[1]) + 2) * 1000 : RATE_LIMIT_DEFAULT_WAIT_MS
+          run.waitingUntil = Date.now() + waitMs // 팝업이 "n초 뒤 이어받아요"를 그리는 데 쓴다
+          pushUpdate()
+          await sleep(waitMs)
+          run.waitingUntil = null
+          if (run.cancelled) break
+          // 같은 속도로 돌아가면 또 걸린다 — 재개할 땐 느려진다.
+          delay = Math.min(delay * 2, SYNC_DELAY_MAX_MS)
+          i-- // 이 항목은 아직 못 받았다 — 다시 시도한다
+          continue
+        }
         run.lastError = rateLimitMessage(e.message, run.service)
         run.rateLimited = true // 자동 동기화가 이 값을 보고 다음 주기를 건너뛸지 판단한다
         break
@@ -329,7 +358,7 @@ async function runSyncLoopInner(ids, myGen) {
     run.done++
     pushUpdate()
     if (!run.cancelled) setBadge(String(Math.round((run.done / run.total) * 100)), badgeAccentFor(run.service))
-    if (!run.cancelled && i < ids.length - 1) await sleep(SYNC_DELAY_MS)
+    if (!run.cancelled && i < ids.length - 1) await sleep(delay)
   }
 
   run.running = false
