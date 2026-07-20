@@ -7,10 +7,11 @@ import { readClaudeVersion } from './claude-version.js'
 import { storeBlob } from './blobstore.js'
 import type { NormalizedChat, NormalizedMessage } from '../adapters/types.js'
 
-const msgId = () => `msg_${randomUUID().replace(/-/g, '')}`
+// codex-session-writer.ts에서도 그대로 재사용(형식 재현 헬퍼라 에이전트 무관) — 그래서 export.
+export const msgId = () => `msg_${randomUUID().replace(/-/g, '')}`
 const reqId = () => `req_${randomUUID().replace(/-/g, '')}`
 
-function isoTs(ms?: number): string {
+export function isoTs(ms?: number): string {
   const d = ms != null ? new Date(ms) : new Date()
   if (isNaN(d.getTime())) return new Date().toISOString() // 잘못된 ts 방어(RangeError 대신 현재시각)
   return d.toISOString()
