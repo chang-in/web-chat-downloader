@@ -7,6 +7,9 @@
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
   --r:8px;
 }
+/* 이 accent 값들은 extension/colors.js의 WCD_SERVICE_COLORS와 동기화돼야 한다(단일
+   출처는 아니고 값만 일치시키는 것 — 번들러가 없어 CSS 변수까지 JS로 주입하진 않는다).
+   여기 값을 바꾸면 colors.js도 반드시 같이 고칠 것. */
 [data-service="claude"]{ --accent:#C4633F; --accent-soft:#FBEFEA; }
 [data-service="chatgpt"]{ --accent:#0E8C6D; --accent-soft:#E8F6F1; }
 [data-service="gemini"]{ --accent:#3B6FD4; --accent-soft:#EAF0FC; }
