@@ -1,9 +1,14 @@
 // popup.js — popup.html(이미 완성된 마크업)을 그대로 대상으로 동작을 붙인다.
 // 새 DOM 구조를 만들지 않는다 — #app의 data-service/data-host가 CSS 색상을 결정하므로
 // 여기서는 그 속성과 텍스트/리스트만 채운다.
+//
+// 대량 동기화 루프는 여기 없다 — background.js(서비스 워커)가 돌린다(MV3에서 팝업 JS는
+// 팝업이 닫히는 순간 죽어서, 45초+짜리 작업을 팝업에 둘 수 없다). 팝업은 시작
+// (sync-start)·취소(sync-cancel)·조회(sync-state)만 하고, 진행 상황은 push(sync-update)로
+// 구독한다. 그래서 팝업을 닫았다 다시 열어도, 심지어 다른 계기로 시작된 동기화라도
+// sync-state 조회 한 번으로 항상 최신 진행률을 그릴 수 있다.
 
 const SVC_LABEL = { claude: 'claude.ai', chatgpt: 'chatgpt.com', gemini: 'gemini.google.com' }
-const SYNC_DELAY_MS = 350
 
 const app = document.getElementById('app')
 const svcName = document.getElementById('svc-name')
@@ -28,8 +33,24 @@ const state = {
   selected: new Set(),
 }
 
+// background가 들고 있는 대량 동기화 상태의 팝업 쪽 사본. sync-state 응답과 sync-update
+// push가 둘 다 같은 모양이라 applyRunState() 하나로 같이 처리한다.
+let runState = { running: false, service: null, total: 0, done: 0, failed: 0, cancelled: false, lastError: null }
+
 function callHost(msg) {
   return chrome.runtime.sendMessage({ to: 'host', msg })
+}
+
+function syncStart(ids) {
+  return chrome.runtime.sendMessage({ cmd: 'sync-start', service: state.service, ids, tabId: state.tabId })
+}
+
+function syncCancel() {
+  return chrome.runtime.sendMessage({ cmd: 'sync-cancel' })
+}
+
+function syncState() {
+  return chrome.runtime.sendMessage({ cmd: 'sync-state' })
 }
 
 async function sendToTab(msg) {
@@ -49,14 +70,20 @@ function canCapture() {
 
 function updateActionButtons() {
   const capturable = canCapture()
-  btnCurrent.disabled = !capturable
-  btnAll.disabled = !capturable || state.items.length === 0
+  const running = runState.running
+  btnCurrent.disabled = !capturable || running // 단건 캡처도 대량 동기화 중엔 막는다
+  btnAll.disabled = !capturable || state.items.length === 0 || running
   btnToggleAll.disabled = !capturable || state.items.length === 0
-  btnSelected.disabled = !capturable || state.selected.size === 0
-}
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms))
+  // #btn-selected는 새 버튼을 만들지 않고 이 슬롯을 그대로 재사용한다 — 실행 중엔
+  // "동기화 취소"로 라벨과 동작이 바뀐다.
+  if (running) {
+    btnSelected.disabled = false
+    btnSelected.textContent = '동기화 취소'
+  } else {
+    btnSelected.disabled = !capturable || state.selected.size === 0
+    btnSelected.textContent = '선택 가져오기'
+  }
 }
 
 // ───────────────────── 목록 렌더 ─────────────────────
@@ -133,7 +160,7 @@ function hideProgress() {
   progressEl.hidden = true
 }
 
-// ───────────────────── 캡처 ─────────────────────
+// ───────────────────── 캡처(단건) ─────────────────────
 
 async function captureOne(id) {
   const payload = await sendToTab({ cmd: 'payload', id })
@@ -148,7 +175,7 @@ async function refreshIndex() {
 }
 
 async function onCurrent() {
-  if (!canCapture()) return
+  if (!canCapture() || runState.running) return // 대량 동기화 중엔 단건 캡처도 막는다
   setMsg('')
   showProgress(1)
   try {
@@ -165,39 +192,55 @@ async function onCurrent() {
   }
 }
 
-// 전체 동기화(#btn-all)·선택 가져오기(#btn-selected)가 공유하는 순차 동기화 루프.
-// 항목 하나가 실패해도 계속 진행하고 마지막에 성공/실패 개수를 요약한다.
-async function syncItems(items) {
-  setMsg('')
-  showProgress(items.length)
-  let ok = 0
-  let fail = 0
-  for (let i = 0; i < items.length; i++) {
-    try {
-      await captureOne(items[i].externalId)
-      ok++
-    } catch (e) {
-      fail++
-    }
-    setProgress(i + 1, items.length)
-    if (i < items.length - 1) await sleep(SYNC_DELAY_MS)
+// ───────────────────── 대량 동기화(루프는 background가 돈다) ─────────────────────
+
+// sync-start/sync-cancel/sync-state 응답과 background가 미는 sync-update push가 전부
+// 같은 모양의 run state를 준다 — 여기 하나로 받아서 그린다.
+function applyRunState(next) {
+  if (!next) return
+  const wasRunning = runState.running
+  runState = next
+  if (runState.running) {
+    showProgress(runState.total)
+    setProgress(runState.done, runState.total)
+    setMsg('')
+  } else {
+    hideProgress()
+    if (wasRunning) finalizeSync() // 이 팝업이 지켜보는 동안 방금 끝났다(완료/취소/에러)
   }
-  await refreshIndex()
+  updateActionButtons()
+}
+
+async function finalizeSync() {
+  if (state.hostOk) await refreshIndex()
   renderList()
   updateActionButtons()
-  setMsg(fail > 0 ? `${ok}개 저장, ${fail}개 실패` : `${ok}개 저장`, fail > 0)
-  hideProgress()
+  if (runState.cancelled) {
+    setMsg(`동기화를 취소했어요 (${runState.done}/${runState.total})`, true)
+  } else if (runState.lastError) {
+    setMsg(runState.lastError, true)
+  } else {
+    const ok = runState.total - runState.failed
+    setMsg(runState.failed > 0 ? `${ok}개 저장, ${runState.failed}개 실패` : `${ok}개 저장`, runState.failed > 0)
+  }
 }
 
 async function onAll() {
-  if (!canCapture() || state.items.length === 0) return
-  await syncItems(state.items)
+  if (!canCapture() || state.items.length === 0 || runState.running) return
+  const ids = state.items.map((i) => i.externalId)
+  applyRunState(await syncStart(ids))
 }
 
+// #btn-selected 하나가 두 역할을 겸한다: 평소엔 "선택 가져오기", 대량 동기화가 실행
+// 중이면 "동기화 취소"(updateActionButtons가 라벨을 바꾼다).
 async function onSelected() {
+  if (runState.running) {
+    applyRunState(await syncCancel())
+    return
+  }
   if (!canCapture() || state.selected.size === 0) return
-  const items = state.items.filter((i) => state.selected.has(i.externalId))
-  await syncItems(items)
+  const ids = state.items.filter((i) => state.selected.has(i.externalId)).map((i) => i.externalId)
+  applyRunState(await syncStart(ids))
 }
 
 function onToggleAll() {
@@ -206,6 +249,16 @@ function onToggleAll() {
   renderList()
   updateActionButtons()
 }
+
+// background가 진행 중 계속 밀어주는 상태를 구독한다(팝업이 열려 있는 동안만 받는다).
+chrome.runtime.onMessage.addListener((req) => {
+  if (req && req.cmd === 'sync-update') applyRunState(req.state)
+})
+
+btnCurrent.addEventListener('click', onCurrent)
+btnAll.addEventListener('click', onAll)
+btnSelected.addEventListener('click', onSelected)
+btnToggleAll.addEventListener('click', onToggleAll)
 
 // ───────────────────── 초기화 ─────────────────────
 
@@ -249,13 +302,12 @@ async function init() {
     }
   }
 
+  // 5. 진행 중인 대량 동기화가 있으면(팝업을 닫았다 다시 열었거나 다른 탭에서 시작한
+  // 경우) 그 진행률을 바로 복원한다.
+  applyRunState(await syncState())
+
   renderList()
   updateActionButtons()
 }
-
-btnCurrent.addEventListener('click', onCurrent)
-btnAll.addEventListener('click', onAll)
-btnSelected.addEventListener('click', onSelected)
-btnToggleAll.addEventListener('click', onToggleAll)
 
 init()
