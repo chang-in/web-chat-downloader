@@ -19,4 +19,10 @@ describe('index-store', () => {
     writeFileSync(join(dir, '.wcd-index.json'), '{ broken json')
     expect(loadIndex(dir)).toEqual({})
   })
+  it('agent는 참고용 메타일 뿐 조회엔 영향 없음(같은 externalId는 agent와 무관하게 같은 sessionId)', () => {
+    const dir = mkdtempSync(join(tmpdir(),'wcd-'))
+    upsertIndex(dir, 'x', { sessionId:'sid-1', service:'claude', title:'t', capturedAt: 1, agent: 'claude' })
+    upsertIndex(dir, 'x', { sessionId:'sid-1', service:'claude', title:'t', capturedAt: 2, agent: 'codex' })
+    expect(resolveSessionId(dir, 'x')).toBe('sid-1')
+  })
 })

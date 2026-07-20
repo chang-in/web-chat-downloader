@@ -98,6 +98,20 @@ describe('handleMessage', () => {
     expect(res.error).toBeTruthy()
   })
 
+  it('capture(agent 생략) → resumeHint는 claude 형식(하위호환: 지금까지와 동일하게 동작)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wcd-host-'))
+    const res = handleMessage({ type: 'capture', payload: claudeRaw }, dir) as any
+    expect(res.ok).toBe(true)
+    expect(res.resumeHint).toBe(`claude --resume ${res.sessionId}`)
+  })
+
+  it('capture(agent:"codex") → codex 라이터로 기록되고 resumeHint는 codex 형식', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wcd-host-'))
+    const res = handleMessage({ type: 'capture', payload: claudeRaw, agent: 'codex' }, dir) as any
+    expect(res.ok).toBe(true)
+    expect(res.resumeHint).toBe(`codex resume ${res.sessionId}`)
+  })
+
   it('알 수 없는 type → { ok: false, error }', () => {
     const dir = mkdtempSync(join(tmpdir(), 'wcd-host-'))
     const res = handleMessage({ type: 'unknown-type' }, dir) as any
