@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mkdtempSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { handleCapture } from '../src/server'
+import { handleCapture } from '../src/capture'
 
 const raw = { uuid:'conv-9', name:'t', chat_messages:[
   { sender:'human', text:'하이', created_at:'2026-07-01T00:00:00Z' },

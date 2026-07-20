@@ -1,28 +1,31 @@
 #!/usr/bin/env node
-import { homedir } from 'os'
-import { join } from 'path'
-import { mkdirSync } from 'fs'
-import { startServer } from './server'
-import { ensureCert } from './core/self-signed-cert'
+import { runNativeHost } from './native-host.js'
+import { installHost } from './install-host.js'
 
-export function parseArgs(argv: string[]): { cmd: string; port: number; cwd: string } {
-  const cmd = argv[0] ?? 'serve'
-  let port = 8787
-  let cwd = join(homedir(), 'Desktop', 'Archive', 'web-chats')
-  for (let i = 1; i < argv.length; i++) {
-    if (argv[i] === '--port') port = Number(argv[++i])
-    else if (argv[i] === '--into') cwd = argv[++i]
-  }
-  return { cmd, port, cwd }
+export function parseArgs(argv: string[]): { cmd: string; extensionId?: string } {
+  const cmd = argv[0] ?? 'host'
+  const extensionId = argv[1]
+  return { cmd, extensionId }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { cmd, port, cwd } = parseArgs(process.argv.slice(2))
-  if (cmd !== 'serve') { console.error('usage: web-chat-downloader serve [--port N] [--into PATH]'); process.exit(1) }
-  mkdirSync(cwd, { recursive: true })
-  const certDir = join(homedir(), '.web-chat-downloader')
-  const { key, cert } = ensureCert(certDir)
-  startServer({ port, cwd, key, cert })
-  console.log(`web-chat-downloader 수신 대기: https://127.0.0.1:${port}  → 저장: ${cwd}`)
-  console.log(`첫 실행 시 브라우저에서 https://127.0.0.1:${port} 를 한 번 열어 인증서를 신뢰(고급→계속)하세요.`)
+  const { cmd, extensionId } = parseArgs(process.argv.slice(2))
+  if (cmd === 'host') {
+    // Chrome이 stdio로 이 프로세스를 직접 실행한다 — stdout에는 프레이밍된 메시지만 나가야 하므로
+    // 여기서부터는 console.log를 쓰면 안 된다(native-host.ts가 이미 그렇게 되어 있음).
+    runNativeHost()
+  } else if (cmd === 'install-host') {
+    if (!extensionId) {
+      console.error('usage: web-chat-downloader install-host <extensionId>')
+      process.exit(1)
+    }
+    const { manifestPath, launcherPath } = installHost(extensionId)
+    console.log(`네이티브 호스트 설치 완료`)
+    console.log(`  매니페스트: ${manifestPath}`)
+    console.log(`  런처: ${launcherPath}`)
+    console.log(`먼저 'npm run build'로 dist/cli.js를 빌드해뒀는지 확인하세요(런처가 그걸 실행합니다).`)
+  } else {
+    console.error('usage: web-chat-downloader <host|install-host <extensionId>>')
+    process.exit(1)
+  }
 }
