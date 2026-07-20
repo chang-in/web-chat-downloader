@@ -10,6 +10,7 @@
 
 const SVC_LABEL = { claude: 'claude.ai', chatgpt: 'chatgpt.com', gemini: 'gemini.google.com' }
 const SVC_FRIENDLY = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini' } // rate-limit 안내 문구용(도메인이 아니라 자연스러운 서비스명)
+const LIST_CACHE_VERSION = 1 // 캐시 구조가 바뀌면 올린다 — 옛 캐시는 읽는 즉시 버려진다
 const LIST_CACHE_TTL_MS = 10 * 60 * 1000 // 캐시가 이 시간 안이면 목록 네트워크 조회를 아예 건너뛴다
 
 // content.js가 돌려주는 rate-limit reason("rate-limited" 또는 "rate-limited:60")을 사용자
@@ -204,11 +205,19 @@ async function readListCache(service) {
   const entry = data[key]
   // 옛 버전 확장이 남긴 형태가 다르거나 손상된 값이면 캐시 없음과 동일하게 취급한다.
   if (!entry || !Array.isArray(entry.items) || typeof entry.fetchedAt !== 'number') return null
+  // 사이트별로 완전히 독립된 캐시 — 키뿐 아니라 값 안에도 소속 서비스를 적어두고 대조한다.
+  // 키가 어떤 이유로 섞이거나 스키마가 바뀐 캐시는 조용히 버린다(다른 사이트 목록이 보이는 사고 방지).
+  if (entry.service !== service || entry.v !== LIST_CACHE_VERSION) {
+    await chrome.storage.local.remove(key)
+    return null
+  }
   return entry
 }
 
 function writeListCache(service, items, partial) {
-  return chrome.storage.local.set({ [listCacheKey(service)]: { items, fetchedAt: Date.now(), partial: !!partial } })
+  return chrome.storage.local.set({
+    [listCacheKey(service)]: { v: LIST_CACHE_VERSION, service, items, fetchedAt: Date.now(), partial: !!partial },
+  })
 }
 
 function clearListCache(service) {
