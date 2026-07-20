@@ -2,10 +2,10 @@ import { randomUUID } from 'crypto'
 import { mkdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import { slug } from './slug'
-import { readClaudeVersion } from './claude-version'
-import { storeBlob } from './blobstore'
-import type { NormalizedChat, NormalizedMessage } from '../adapters/types'
+import { slug } from './slug.js'
+import { readClaudeVersion } from './claude-version.js'
+import { storeBlob } from './blobstore.js'
+import type { NormalizedChat, NormalizedMessage } from '../adapters/types.js'
 
 const msgId = () => `msg_${randomUUID().replace(/-/g, '')}`
 const reqId = () => `req_${randomUUID().replace(/-/g, '')}`

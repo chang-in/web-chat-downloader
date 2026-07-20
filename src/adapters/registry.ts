@@ -1,7 +1,7 @@
-import type { NormalizedChat } from './types'
-import { claudeAdapter } from './claude'
-import { chatgptAdapter } from './chatgpt'
-import { geminiAdapter } from './gemini'
+import type { NormalizedChat } from './types.js'
+import { claudeAdapter } from './claude.js'
+import { chatgptAdapter } from './chatgpt.js'
+import { geminiAdapter } from './gemini.js'
 
 export type Adapter = {
   service: 'claude' | 'chatgpt' | 'gemini'
