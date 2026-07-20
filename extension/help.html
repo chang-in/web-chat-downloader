@@ -70,6 +70,16 @@ node dist/cli.js install-host</pre>
     <p>동기화 중에는 진행률(%)이, 문제없이 끝나면 <strong>✓</strong>가, 실패한 항목이 있으면 <strong>!</strong>가 잠깐 표시됩니다. 팝업을 닫아도 동기화는 계속됩니다.</p>
   </div>
 
+  <h2><span class="n">05</span>저장 위치와 서비스별 분리</h2>
+  <p>세션 파일 자체는 Claude Code 규칙에 따라 <code>~/.claude/projects/</code> 아래에 저장됩니다. 설정의 <strong>저장 위치</strong>는 파일이 놓일 폴더가 아니라 <strong>이 대화들이 어느 작업 폴더 소속인지</strong>를 정하는 값입니다. 이 값이 곧 <code>--resume</code>할 때 들어갈 폴더가 됩니다.</p>
+  <p>기본값은 세 서비스가 모두 <code>~/Desktop/Archive/web-chats</code> 한 곳에 묶입니다. 대화가 쌓이면 resume 목록이 길어지므로, <strong>서비스별로 나누고 싶다면</strong> 설정에서 각각 다른 경로를 넣으세요.</p>
+  <pre>claude.ai  →  ~/Desktop/Archive/web-chats/claude
+ChatGPT    →  ~/Desktop/Archive/web-chats/chatgpt
+Gemini     →  ~/Desktop/Archive/web-chats/gemini</pre>
+  <p>이렇게 두면 해당 폴더에서 재개할 때 <strong>그 서비스 대화만</strong> 보입니다.</p>
+  <pre>cd ~/Desktop/Archive/web-chats/chatgpt &amp;&amp; claude --resume</pre>
+  <p class="note">이미 가져온 대화는 이전 위치에 그대로 남습니다. 설정을 바꾼 뒤 다시 가져오면 새 위치에 저장됩니다.</p>
+
   <hr>
 
   <h2>자주 묻는 질문</h2>
