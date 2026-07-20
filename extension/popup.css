@@ -1,0 +1,80 @@
+/* 서비스가 액센트를 정한다 — 지금 어느 서비스인지가 색으로 읽히게 */
+:root{
+  --bg:#FAFAFB; --surface:#FFF; --line:#E6E6EB; --line-soft:#F0F0F4;
+  --ink:#16161A; --ink2:#6E6E7A; --ink3:#9A9AA6;
+  --accent:#6E6E7A; --accent-soft:#F0F0F4;
+  --ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --r:8px;
+}
+[data-service="claude"]{ --accent:#C4633F; --accent-soft:#FBEFEA; }
+[data-service="chatgpt"]{ --accent:#0E8C6D; --accent-soft:#E8F6F1; }
+[data-service="gemini"]{ --accent:#3B6FD4; --accent-soft:#EAF0FC; }
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:392px;background:var(--bg);font-family:var(--ui);color:var(--ink);
+  font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.app{display:flex;flex-direction:column;max-height:560px}
+
+/* 상태 */
+.status{display:flex;align-items:center;gap:8px;padding:12px 14px;
+  border-bottom:1px solid var(--line);background:var(--surface)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:none}
+[data-host="ok"] .dot{background:var(--accent)}
+[data-host="off"] .dot{background:#D14343}
+.svc{font-weight:600;letter-spacing:-0.01em}
+.host{margin-left:auto;font-size:11px;color:var(--ink2)}
+[data-host="off"] .host{color:#D14343}
+
+/* 주 액션 */
+.actions{display:flex;gap:8px;padding:12px 14px;background:var(--surface);
+  border-bottom:1px solid var(--line)}
+.btn{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);font-family:inherit;font-size:13px;
+  font-weight:550;cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover:not(:disabled){background:var(--line-soft)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){filter:brightness(1.06)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.small{flex:none;padding:7px 11px;font-size:12px}
+.ghost{border:0;background:none;color:var(--ink2);font-family:inherit;font-size:11px;
+  cursor:pointer;padding:2px 4px;border-radius:4px}
+.ghost:hover{color:var(--ink);background:var(--line-soft)}
+
+/* 목록 헤더 */
+.listhead{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px 6px;font-size:11px;color:var(--ink2);letter-spacing:.02em}
+.lbl b{color:var(--ink);font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:11px}
+
+/* 목록 */
+.list{list-style:none;overflow-y:auto;flex:1;padding:0 8px 8px}
+.empty{padding:22px 12px;text-align:center;color:var(--ink3);font-size:12px}
+.item{display:flex;gap:9px;padding:8px;border-radius:var(--r);align-items:flex-start}
+.item:hover{background:var(--surface)}
+.item input[type=checkbox]{margin-top:2px;accent-color:var(--accent);flex:none}
+.meta{min-width:0;flex:1}
+.title{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item.saved .title::before{content:"✓";color:var(--accent);font-weight:700;margin-right:5px}
+
+/* 시그니처: 실제 resume 명령을 그대로 보여주고, 누르면 복사된다 */
+.cmd{display:block;width:100%;margin-top:4px;padding:4px 7px;border:0;
+  border-left:2px solid var(--accent);border-radius:0 4px 4px 0;
+  background:var(--accent-soft);color:var(--ink2);
+  font-family:var(--mono);font-size:10.5px;text-align:left;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
+.cmd:hover{color:var(--ink)}
+.cmd.copied{color:var(--accent);font-weight:600}
+
+/* 하단 */
+.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-top:1px solid var(--line);background:var(--surface)}
+.progress{display:flex;align-items:center;gap:7px;flex:1;min-width:0}
+.track{flex:1;height:4px;background:var(--line-soft);border-radius:2px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--accent);transition:width .25s ease}
+.num{font-family:var(--mono);font-size:10.5px;color:var(--ink2);
+  font-variant-numeric:tabular-nums;flex:none}
+.msg{font-size:11px;color:var(--ink2);margin-left:auto;text-align:right}
+.msg.err{color:#D14343}
+
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}

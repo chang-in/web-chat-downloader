@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div class="app" id="app" data-service="none" data-host="checking">
+  <header class="status">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="svc" id="svc-name">서비스 확인 중</span>
+    <span class="host" id="host-state">호스트 확인 중</span>
+  </header>
+
+  <div class="actions">
+    <button class="btn primary" id="btn-current">이 대화 가져오기</button>
+    <button class="btn" id="btn-all">전체 동기화</button>
+  </div>
+
+  <div class="listhead">
+    <span class="lbl">대화 <b id="count">—</b></span>
+    <button class="ghost" id="btn-toggle-all">전체 선택</button>
+  </div>
+
+  <ul class="list" id="list">
+    <li class="empty" id="empty">대화 목록을 불러오려면 위 버튼을 누르세요.</li>
+  </ul>
+
+  <footer class="bar">
+    <button class="btn small" id="btn-selected" disabled>선택 가져오기</button>
+    <div class="progress" id="progress" hidden>
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <span class="num" id="num">0/0</span>
+    </div>
+    <span class="msg" id="msg"></span>
+  </footer>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
