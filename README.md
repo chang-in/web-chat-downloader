@@ -1,113 +1,130 @@
-# web-chat-downloader
+<p align="center">
+  <img src="docs/assets/hero.png" alt="web-chat-downloader — 웹 AI 대화를 터미널로" width="820">
+</p>
 
-claude.ai · ChatGPT · Gemini의 웹 대화를 로컬 Claude Code 세션 파일(`.jsonl`)로
-변환해서 `claude --resume`으로 터미널에서 이어갈 수 있게 해준다.
+<p align="center">
+  claude.ai · ChatGPT · Gemini에서 하던 대화를 <b>내 컴퓨터로 가져와</b><br>
+  터미널에서 <code>claude</code>나 <code>codex</code>로 이어서 대화할 수 있게 해줘요.
+</p>
 
-## 구조 — Chrome 확장 + Native Messaging 호스트
+<p align="center">
+  <a href="./LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-black"></a>
+  <img alt="Chrome 확장" src="https://img.shields.io/badge/Chrome-확장-C4633F">
+  <img alt="서버 불필요" src="https://img.shields.io/badge/서버-불필요-black">
+</p>
 
-브라우저 확장 프로그램은 로그인된 세션으로 대화 데이터를 읽을 수 있지만
-파일을 쓸 순 없다. 파일을 쓰는 건 로컬 프로세스 몫이다. 다만 그 프로세스를
-**상시 띄워둘 필요는 없다** — Chrome Native Messaging을 쓰면 Chrome이 필요할 때만
-이 CLI를 stdio 프로세스로 실행해서, 캡처한 페이로드를 stdin/stdout으로 주고받고
-끝나면 종료한다.
+---
 
-```
-[대화 페이지] --확장 아이콘 클릭--> 로그인 세션으로 대화 API fetch
-   --Native Messaging(stdio)--> web-chat-downloader host (Chrome이 필요시 실행)
-   --서비스 감지--> normalize() --> CC 세션 합성 --> writeSession()
-   --> ~/.claude/projects/<slug>/<uuid>.jsonl
-```
+## 이런 적 있으신가요
 
-상시 서버, 자체서명 인증서, mixed-content/CORS 문제가 전부 사라진다.
+웹에서 한참 대화하다가 "이거 코드로 옮겨서 계속하고 싶은데" 싶을 때가 있어요.
+그런데 브라우저의 대화는 브라우저에 갇혀 있죠. 복사해서 붙여넣으면 맥락이 끊기고요.
 
-Chrome 확장 프로그램(`extension/`)이 위 그림의 "확장 아이콘 클릭"부터
-"Native Messaging"까지를 맡는다. 서비스별 fetch·페이지 감지만 확장에 있고,
-감지·정규화·파일 기록 로직은 전부 `src/`(코어) 쪽이다 — 확장은 그 코어를
-호출하는 얇은 껍데기다.
-
-## 컴포넌트
-
-```
-src/
-  adapters/        # 서비스별 원본 → 공통형(NormalizedChat) 변환. 서비스 지식은 여기만 안다.
-  core/
-    session-writer.ts  # 공통형 → Claude Code 실물 .jsonl
-    index-store.ts     # externalId → sessionId 중복 방지(재캡처 = 갱신), index 조회
-    blobstore.ts       # 첨부 원본 저장(내용 해시로 중복 제거)
-  capture.ts        # handleCapture: 감지 → 정규화 → 세션 기록 → 인덱스 갱신(검증된 파이프라인)
-  native-host.ts     # Chrome Native Messaging 프레이밍 + 메시지 루프(stdin/stdout). ping/capture/index
-  install-host.ts    # 매니페스트·런처 스크립트 설치
-  cli.ts              # 진입점: host / install-host <extensionId>
-extension/
-  manifest.json / background.js / content.js / popup.html·css·js  # Chrome 확장 프로그램 본체
-```
-
-## 설치
+이 도구는 그 대화를 **로컬 세션 파일로 그대로 옮겨서**, 터미널에서 하던 얘기를 이어가게 해줘요.
 
 ```bash
-npm install
-npm run build
-node dist/cli.js install-host           # extensionId 생략 시 자동 탐지
-node dist/cli.js install-host <extensionId>  # 필요하면 직접 지정
+cd ~/Desktop/Archive/web-chats
+claude --resume 70aeee51-d570-4aa8-8b35-1be6da7853dc
+# 웹에서 하던 대화가 그대로 이어집니다
 ```
 
-- `<extensionId>`는 생략할 수 있다 — Chrome의 프로필별 `Preferences`와
-  `Secure Preferences`에서 `extension/` 폴더를 가리키는 압축해제 확장을
-  자동으로 찾는다. 여러 Chrome 프로필에 걸쳐 검색하고, 못 찾으면 뭘 확인해야
-  하는지 안내 메시지를 띄운다. 자동 탐지가 여러 개의 ID를 찾으면(여러 프로필에
-  각각 로드해둔 경우 등) 전부 `allowed_origins`에 등록한다.
-- 직접 지정하려면 확장 프로그램을 `chrome://extensions`에 "압축해제된 확장
-  프로그램을 로드"로 올렸을 때 그 페이지에 표시되는 32자 ID를 인자로 넘기면
-  된다. 확장 프로그램 로드 방법은 [`extension/README.md`](extension/README.md)
-  참고.
-- 설치 명령은 두 파일을 쓴다.
-  - 런처: `~/.web-chat-downloader/host.sh` (실행 권한 755, 빌드된 `dist/cli.js host`를
-    절대 경로로 실행)
-  - 매니페스트: `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.web_chat_downloader.host.json`
-    (`allowed_origins`에 위 extensionId를 등록)
-- **먼저 `npm run build`를 실행해 `dist/cli.js`를 만들어둬야 한다** — 런처는 그 파일을 그대로 가리킨다.
-- 확장 프로그램을 다시 설치해서 ID가 바뀌면 `install-host`를 인자 없이(또는 새 ID로) 다시 실행하면 된다(덮어씀).
+## 무엇을 해주나요
 
-## 사용 흐름
+- **세 서비스 지원** — claude.ai · ChatGPT · Gemini
+- **한 번에 전부** — 대화 하나만 가져오거나, 계정의 대화를 통째로 동기화
+- **두 에이전트** — Claude Code 세션 또는 Codex 세션으로 저장 (설정에서 선택)
+- **다시 가져와도 안전** — 같은 대화는 새로 쌓이지 않고 최신 내용으로 갱신돼요
+- **이미지도 함께** — 대화 속 이미지는 세션에 담기고, 첨부 파일은 따로 저장돼요
+- **서버가 없어요** — 뭔가를 켜두고 다닐 필요가 없어요
 
-1. 위 설치를 마친다.
-2. `chrome://extensions`에서 개발자 모드로 `extension/` 폴더를 로드한다
-   (자세한 순서는 [`extension/README.md`](extension/README.md)).
-3. 캡처하려는 서비스(claude.ai · chatgpt.com · gemini.google.com)의 대화
-   페이지에서 확장 아이콘을 클릭한다. 팝업에서 지금 대화만 가져오거나,
-   대화 목록을 전체/선택 동기화할 수 있다.
-4. Chrome이 필요 시 `host.sh`를 실행해 대화를 Native Messaging으로 전달하고,
-   이 CLI가 감지 → 정규화 → 세션 파일 기록까지 처리한다.
-5. 저장 위치(`~/Desktop/Archive/web-chats`, 없으면 자동 생성)에서:
-   ```bash
-   claude --resume <sessionId>
-   ```
-   팝업에서 이미 저장된 대화를 클릭하면 이 명령이 클립보드로 복사된다.
+## 어떻게 동작하나요
 
-저장 위치는 환경변수 `WCD_CWD`로 바꿀 수 있다.
+브라우저 확장은 로그인된 상태로 대화를 읽을 수 있지만 **파일을 만들 수는 없어요**.
+파일을 쓰는 일은 로컬 프로그램이 맡는데, 그 프로그램을 계속 띄워둘 필요는 없어요 —
+**Chrome이 필요한 순간에만 실행**하고 끝나면 알아서 종료되거든요.
 
-## 서비스 지원 현황
+```
+대화 페이지에서 확장 클릭
+   ↓  로그인 세션으로 대화를 읽고
+   ↓  Chrome이 로컬 호스트를 잠깐 실행해서 넘기면
+   ↓  형식을 맞춰 세션 파일로 저장
+~/.claude/projects/<폴더>/<세션ID>.jsonl
+```
 
-어댑터(`src/adapters/*`)는 claude.ai · ChatGPT · Gemini 세 서비스 모두 감지·정규화
-로직과 단위 테스트를 갖추고 있고, 이제 `extension/content.js`가 그 로직이 기대하는
-형태의 원본(raw) payload를 세 서비스 모두에서 만들어 호스트로 넘긴다. 다만
-Gemini의 batchexecute 토큰 추출·페이지네이션처럼 실제 응답 형식에 의존하는
-부분은 사용자가 브라우저에서 직접 라이브로 재검증한 API 동작을 옮긴 것이고,
-이번 확장 프로그램 코드 자체는 아직 라이브 브라우저에서 end-to-end로 실행해
-보진 않았다 — 처음 써볼 때 서비스별로 한 번씩 확인 필요.
+덕분에 상시 서버도, 인증서도, CORS 설정도 필요 없어요.
+
+## 시작하기
+
+**1. 내려받아 빌드해요**
+
+```bash
+git clone https://github.com/chang-in/web-chat-downloader.git
+cd web-chat-downloader
+npm install && npm run build
+```
+
+**2. 확장을 로드해요**
+
+`chrome://extensions` → 우상단 **개발자 모드** 켜기 → **압축해제된 확장 프로그램을 로드** → 이 저장소의 `extension/` 폴더 선택
+
+**3. 호스트를 연결해요** (처음 한 번만)
+
+```bash
+node dist/cli.js install-host
+```
+
+확장 ID는 알아서 찾아요. 이제 준비 끝이에요.
+
+## 써보기
+
+claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을 누르면 돼요.
+
+| 버튼 | 하는 일 |
+|---|---|
+| 이 대화 가져오기 | 지금 보고 있는 대화 하나 |
+| 전체 동기화 | 그 서비스의 대화를 순서대로 전부 |
+| 선택 가져오기 | 목록에서 체크한 것만 |
+
+가져온 대화 아래엔 **실행할 명령이 그대로** 보여요. 누르면 복사되니 터미널에 붙여넣으면 됩니다.
+이미 가져온 대화는 ✓로 표시되고, 동기화 중에는 확장 아이콘에 진행률이 떠요(끝나면 `✓`, 문제가 있으면 `!`).
+
+자세한 사용법은 팝업 오른쪽 위 **?** 버튼에서 볼 수 있어요.
+
+## 설정
+
+팝업의 **⚙** 버튼에서 바꿀 수 있어요.
+
+- **기본 에이전트** — Claude Code / Codex 중 어느 형식으로 저장할지
+- **저장 위치** — 서비스별로 폴더를 나눌 수 있어요 (나누면 재개 목록도 서비스별로 깔끔해져요)
+- **자동 동기화** — 30분 / 1시간 / 3시간 주기 (해당 서비스 탭이 열려 있을 때 동작해요)
+- **동기화 범위** — 전체 또는 최근 N개만
+- **이미지 임베드** — 끄면 세션이 가벼워져요
+
+## 알아두면 좋아요
+
+- 각 서비스의 **공개되지 않은 내부 API**를 사용해요. 서비스가 바뀌면 동작하지 않을 수 있어요.
+- 요청은 **하나씩 순서대로** 보내요. 그래도 대화가 아주 많으면 서비스가 잠시 제한할 수 있는데,
+  그럴 땐 확장이 **즉시 멈추고** 받은 데이터는 지켜요. 1~2분 뒤 다시 열어주세요.
+- **웹을 원본으로 봐요.** 웹에서 대화를 더 이어간 뒤 다시 가져오면 최신 내용으로 갱신되지만,
+  로컬에서 `--resume`으로 이어간 내용은 덮일 수 있어요.
+- 이 도구는 **본인 계정의 대화를 본인 컴퓨터로** 내려받는 용도예요. 외부로 데이터를 보내지 않아요.
 
 ## 개발
 
 ```bash
-npm test          # vitest
-npx tsc --noEmit  # 타입 체크
+npm test           # vitest
+npx tsc --noEmit   # 타입 검사
 ```
 
-`host` 명령은 Chrome이 stdio로 직접 실행하는 걸 전제로 하므로, 손으로 확인하려면
-Native Messaging 프레이밍(4바이트 little-endian uint32 길이 + UTF-8 JSON)에 맞춰
-직접 바이트를 stdin에 넣어야 한다. `src/native-host.ts`의 `encodeMessage`/`decodeMessages`가
-그 프레이밍을 구현·테스트한다(`tests/native-host.test.ts`).
+| 경로 | 역할 |
+|---|---|
+| `src/adapters/` | 서비스별 응답을 공통 형식으로 정규화 |
+| `src/core/` | 세션 파일 작성(Claude·Codex), 첨부 저장, 중복 방지 |
+| `src/native-host.ts` | 확장과 stdin/stdout으로 주고받는 호스트 |
+| `extension/` | Chrome 확장 (팝업·설정·백그라운드·콘텐츠 스크립트) |
+
+기여는 [CONTRIBUTING.md](./CONTRIBUTING.md)를 봐주세요. 작은 수정도 환영해요.
 
 ## 라이선스
 
-MIT — 자유롭게 쓰고 고치고 배포할 수 있습니다. 자세한 내용은 [LICENSE](./LICENSE)를 보세요.
+[MIT](./LICENSE) — 자유롭게 쓰고, 고치고, 배포하셔도 돼요.
