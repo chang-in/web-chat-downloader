@@ -86,7 +86,12 @@ if (!window.__wcdContentInjected) {
     const res = await fetch(`/api/organizations/${org}/chat_conversations`, { credentials: 'include' })
     if (!res.ok) throw new Error(`claude 목록 조회 실패: ${res.status}`)
     const data = await res.json()
-    const items = (Array.isArray(data) ? data : []).map((c) => ({ externalId: c.uuid, title: c.name || '' }))
+    // updatedAt: 팝업이 "이미 최신이면 다시 안 받기"를 판단하는 근거(ISO 문자열).
+    const items = (Array.isArray(data) ? data : []).map((c) => ({
+      externalId: c.uuid,
+      title: c.name || '',
+      updatedAt: typeof c.updated_at === 'string' ? c.updated_at : null,
+    }))
     return { items, partial: false }
   }
 
@@ -157,7 +162,11 @@ if (!window.__wcdContentInjected) {
       for (const it of pageItems) {
         if (seen.has(it.id)) continue
         seen.add(it.id)
-        items.push({ externalId: it.id, title: it.title || '' })
+        items.push({
+          externalId: it.id,
+          title: it.title || '',
+          updatedAt: typeof it.update_time === 'string' ? it.update_time : null,
+        })
       }
       if (pageItems.length < PAGE_SIZE) { reachedEnd = true; break }
       await sleep(PAGE_DELAY)
