@@ -16,4 +16,9 @@ describe('parseArgs', () => {
     expect(o.cmd).toBe('install-host')
     expect(o.extensionId).toBe('abcdefghijklmnopabcdefghijklmnop')
   })
+  it('install-host를 인자 없이 호출하면 extensionId가 undefined다(자동 탐지 트리거)', () => {
+    const o = parseArgs(['install-host'])
+    expect(o.cmd).toBe('install-host')
+    expect(o.extensionId).toBeUndefined()
+  })
 })
