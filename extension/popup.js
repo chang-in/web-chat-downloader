@@ -378,6 +378,10 @@ function applyRunState(next) {
     // 고장으로 읽힌다. 진행률 자체는 그대로 보여준다(어차피 같은 확장의 작업이라).
     if (runState.service && runState.service !== state.service) {
       setMsg(`${SVC_FRIENDLY[runState.service] || runState.service} 동기화가 진행 중이에요`)
+    } else if (skippedCount > 0) {
+      // 진행률 총량이 목록 개수보다 작은 이유를 '지금' 알려준다 — 완료 후에 알려주면
+      // 이미 "덜 받는 거 아냐?" 하고 불안해진 다음이라 늦다.
+      setMsg(`${skippedCount}개는 이미 최신이라 건너뛰고, 나머지 ${runState.total}개만 받아요`)
     } else {
       setMsg('')
     }
