@@ -63,9 +63,9 @@ export function defaultExtensionDir(): string {
 // ── 확장 ID 자동 탐지 ──────────────────────────────────────────────
 //
 // Chrome은 "압축해제된 확장 프로그램 로드"로 올린 확장을 프로필별 Preferences
-// (JSON)의 extensions.settings[id].path에 그 확장 폴더의 절대경로로 기록해둔다.
-// 그 값이 우리 저장소의 extension/ 폴더와 같은 경로를 가리키면 그 id가 우리
-// 확장이라고 판단한다.
+// 또는 Secure Preferences (JSON)의 extensions.settings[id].path에 그 확장 폴더의
+// 절대경로로 기록해둔다. 그 값이 우리 저장소의 extension/ 폴더와 같은 경로를
+// 가리키면 그 id가 우리 확장이라고 판단한다.
 
 // 순수 함수: 이미 파싱된 Preferences JSON 하나에서 extensionDir와 일치하는 id를 찾는다.
 // Chrome을 건드리지 않고, 파일 I/O도 하지 않는다 — 단위 테스트가 이 함수를 직접 검증한다.
@@ -93,9 +93,10 @@ export type ExtensionScanResult = { id: string; profiles: string[] }
 
 const DEFAULT_CHROME_USER_DATA_DIR = join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome')
 
-// Default + Profile N 디렉터리를 후보로 모아 Preferences를 하나씩 읽는다.
-// 프로필 디렉터리나 Preferences가 없거나, 파일이 깨져 있거나(JSON 파싱 실패),
-// 잠겨 있어 읽기가 실패해도(EACCES 등) 그 프로필만 건너뛰고 명령 전체는 죽지 않는다.
+// Default + Profile N 디렉터리를 후보로 모아 Preferences와 Secure Preferences를
+// 모두 읽는다. 프로필 디렉터리나 파일이 없거나, 파일이 깨져 있거나
+// (JSON 파싱 실패), 잠겨 있어 읽기가 실패해도(EACCES 등) 그 파일만 건너뛰고
+// 명령 전체는 죽지 않는다.
 export function scanChromeProfilesForExtension(
   extensionDir: string,
   opts: { userDataDir?: string } = {},
@@ -104,15 +105,20 @@ export function scanChromeProfilesForExtension(
   const byId = new Map<string, Set<string>>()
 
   for (const profile of listProfileDirs(userDataDir)) {
-    let prefsJson: unknown
-    try {
-      prefsJson = JSON.parse(readFileSync(join(userDataDir, profile, 'Preferences'), 'utf-8'))
-    } catch {
-      continue
-    }
-    for (const id of findExtensionIds(prefsJson, extensionDir)) {
-      if (!byId.has(id)) byId.set(id, new Set())
-      byId.get(id)!.add(profile)
+    const profileDir = join(userDataDir, profile)
+    const prefsFiles = ['Preferences', 'Secure Preferences']
+
+    for (const prefsFile of prefsFiles) {
+      let prefsJson: unknown
+      try {
+        prefsJson = JSON.parse(readFileSync(join(profileDir, prefsFile), 'utf-8'))
+      } catch {
+        continue
+      }
+      for (const id of findExtensionIds(prefsJson, extensionDir)) {
+        if (!byId.has(id)) byId.set(id, new Set())
+        byId.get(id)!.add(profile)
+      }
     }
   }
 
