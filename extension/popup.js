@@ -542,4 +542,8 @@ async function init() {
   updateActionButtons()
 }
 
+document.getElementById('btn-help').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('help.html') })
+})
+
 init()
