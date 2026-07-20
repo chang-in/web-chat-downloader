@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { handleCapture } from './capture.js'
+import { loadIndex } from './core/index-store.js'
 
 // Chrome Native Messaging 표준 프레이밍: 4바이트 little-endian uint32 길이 프리픽스 +
 // 그만큼의 UTF-8 JSON. stdin/stdout 둘 다 이 형식이다.
@@ -42,9 +43,13 @@ export function resolveCwd(): string {
 }
 
 // 확장 프로그램이 보내는 메시지 하나를 처리해서 응답 페이로드를 만든다(프레이밍과 무관한 순수 로직).
-export function handleMessage(msg: unknown, cwd: string): { ok: boolean; sessionId?: string; error?: string; version?: string } {
+export function handleMessage(
+  msg: unknown,
+  cwd: string,
+): { ok: boolean; sessionId?: string; error?: string; version?: string; index?: ReturnType<typeof loadIndex> } {
   const type = (msg as { type?: unknown } | null)?.type
   if (type === 'ping') return { ok: true, version: readVersion() }
+  if (type === 'index') return { ok: true, index: loadIndex(cwd) }
   if (type === 'capture') {
     const payload = (msg as { payload?: unknown }).payload
     const res = handleCapture(payload, cwd)

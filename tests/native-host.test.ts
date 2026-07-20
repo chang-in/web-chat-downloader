@@ -103,6 +103,22 @@ describe('handleMessage', () => {
     const res = handleMessage({ type: 'unknown-type' }, dir) as any
     expect(res.ok).toBe(false)
   })
+
+  it('index → { ok: true, index }: capture로 쌓인 엔트리가 externalId로 조회된다(확장의 "이미 저장됨" 표시용)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wcd-host-'))
+    const captured = handleMessage({ type: 'capture', payload: claudeRaw }, dir) as any
+    const res = handleMessage({ type: 'index' }, dir) as any
+    expect(res.ok).toBe(true)
+    expect(res.index['conv-native-1']).toMatchObject({ sessionId: captured.sessionId, service: 'claude', title: 't' })
+    expect(typeof res.index['conv-native-1'].capturedAt).toBe('number')
+  })
+
+  it('index: 캡처 이력이 없는 cwd는 빈 인덱스({})를 반환한다', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wcd-host-'))
+    const res = handleMessage({ type: 'index' }, dir) as any
+    expect(res.ok).toBe(true)
+    expect(res.index).toEqual({})
+  })
 })
 
 describe('resolveCwd', () => {
