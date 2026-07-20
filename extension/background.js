@@ -22,12 +22,14 @@
 //    그냥 건너뛴다(사용자 대신 새 탭을 여는 건 침해적이라 하지 않는다). 자세한 설명은
 //    아래 "자동 동기화" 섹션 주석 참고.
 const HOST_NAME = 'com.web_chat_downloader.host'
-// settings.js(WCD_SETTINGS_KEY, WCD_DEFAULTS, wcdLoadSettings)를 서비스 워커 전역에 끌어온다.
-// manifest.json의 background가 "type": "module"이 아닌 classic 서비스 워커라 importScripts를
-// 쓸 수 있다 — 별도 번들러 없이 전역을 공유하는 가장 단순한 방법.
-importScripts('settings.js')
-const BADGE_ACCENT = '#C4633F' // 브랜드 accent — 진행률 표시
-const BADGE_FAIL = '#D14343' // 실패/에러 표시
+// settings.js(WCD_SETTINGS_KEY, WCD_DEFAULTS, wcdLoadSettings)와 colors.js(WCD_SERVICE_COLORS)를
+// 서비스 워커 전역에 끌어온다. manifest.json의 background가 "type": "module"이 아닌 classic
+// 서비스 워커라 importScripts를 쓸 수 있다 — 별도 번들러 없이 전역을 공유하는 가장 단순한 방법.
+importScripts('settings.js', 'colors.js')
+const BADGE_ACCENT = '#C4633F' // service를 모를 때(run.service가 null 등)의 폴백 색 —
+// 우연히 WCD_SERVICE_COLORS.claude와 같은 값이지만, 이건 서비스별 팔레트가 생기기 전부터
+// 있던 브랜드 accent라 개념이 다르다(팔레트가 바뀌어도 폴백은 안 바뀌어야 하므로 따로 둔다).
+const BADGE_FAIL = '#D14343' // 실패/에러 표시 — 절대 서비스별로 바뀌면 안 된다(색 자체가 "문제 발생" 신호)
 const SYNC_DELAY_MS = 350 // 항목 사이 요청 간격(서비스 API에 대한 예의) — 기존 popup.js 값 그대로 이전
 const SVC_FRIENDLY = { chatgpt: 'ChatGPT', gemini: 'Gemini', claude: 'Claude' } // rate-limit 안내 문구용
 const DONE_BADGE_MS = 3000
@@ -96,6 +98,12 @@ function callHost(msg) {
 }
 
 // ───────────────────── 뱃지 ─────────────────────
+
+// 진행률/완료 뱃지는 지금 동기화 중인 서비스의 액센트 색으로 그린다 — service가 null이거나
+// (버전이 안 맞는 등의 이유로) 팔레트에 없는 값이면 기존 브랜드 accent로 폴백한다.
+function badgeAccentFor(service) {
+  return (service && WCD_SERVICE_COLORS[service]) || BADGE_ACCENT
+}
 
 function setBadge(text, color) {
   chrome.action.setBadgeBackgroundColor({ color })
@@ -186,7 +194,7 @@ async function runSyncLoop(ids, myGen) {
 
 async function runSyncLoopInner(ids, myGen) {
   pushUpdate()
-  setBadge('0', BADGE_ACCENT)
+  setBadge('0', badgeAccentFor(run.service))
 
   // Native Messaging 포트를 실행 내내 열어 둔다(연결된 포트가 있는 동안은 서비스 워커가
   // 유휴 종료되지 않는다) — 이게 45초+짜리 루프 동안 워커를 살려 두는 keep-alive다.
@@ -205,7 +213,7 @@ async function runSyncLoopInner(ids, myGen) {
       // 여기서 clearBadge하면 그걸 지워버리게 된다 — 세대가 바뀌었으면 지우지 않는다.
       if (myGen === runGen) clearBadge()
     } else {
-      setBadge('✓', BADGE_ACCENT)
+      setBadge('✓', badgeAccentFor(run.service))
       await sleep(DONE_BADGE_MS)
       if (myGen === runGen) clearBadge()
     }
@@ -287,7 +295,7 @@ async function runSyncLoopInner(ids, myGen) {
 
     run.done++
     pushUpdate()
-    if (!run.cancelled) setBadge(String(Math.round((run.done / run.total) * 100)), BADGE_ACCENT)
+    if (!run.cancelled) setBadge(String(Math.round((run.done / run.total) * 100)), badgeAccentFor(run.service))
     if (!run.cancelled && i < ids.length - 1) await sleep(SYNC_DELAY_MS)
   }
 
