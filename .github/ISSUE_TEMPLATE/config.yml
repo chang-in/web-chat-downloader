@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 질문 · 사용법
+    url: https://github.com/chang-in/web-chat-downloader/discussions
+    about: 버그가 아닌 질문은 Discussions에 남겨주세요

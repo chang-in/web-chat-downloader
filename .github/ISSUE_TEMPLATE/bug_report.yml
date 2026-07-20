@@ -1,0 +1,45 @@
+name: 버그 신고
+description: 동작하지 않거나 예상과 다른 경우
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 설치·연결 문제라면 아래 정보가 있어야 원인을 좁힐 수 있어요.
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요
+      description: 무엇을 하려고 했고, 무엇이 일어났나요
+    validations:
+      required: true
+  - type: dropdown
+    id: service
+    attributes:
+      label: 어느 서비스인가요
+      options:
+        - claude.ai
+        - ChatGPT
+        - Gemini
+        - 해당 없음
+    validations:
+      required: true
+  - type: input
+    id: popup
+    attributes:
+      label: 팝업 상단 상태
+      description: 예 - 연결됨 또는 호스트 없음, 서비스명, 하단 메시지
+    validations:
+      required: true
+  - type: textarea
+    id: install
+    attributes:
+      label: install-host 실행 결과
+      description: node dist/cli.js install-host 출력을 붙여주세요
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      placeholder: macOS 15 / Chrome 140 / Node 20
+    validations:
+      required: true
