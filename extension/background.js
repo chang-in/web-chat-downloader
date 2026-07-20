@@ -298,7 +298,9 @@ async function runSyncLoopInner(ids, myGen) {
 
 function handleSyncStart(req, sendResponse) {
   if (run.running) {
-    sendResponse(publicState()) // 이미 실행 중 — 새로 시작하지 않고 현재 상태를 돌려준다
+    // 이미 실행 중 — 새로 시작하지 않는다. 이때 현재 상태만 돌려주면 팝업이 '남의 서비스'
+    // 진행률을 그려서 마치 시작된 것처럼 보인다. busyWith를 실어 보내 팝업이 구분하게 한다.
+    sendResponse({ ...publicState(), busyWith: run.service })
     return
   }
   const ids = Array.isArray(req.ids) ? req.ids.filter((id) => typeof id === 'string' && id) : []

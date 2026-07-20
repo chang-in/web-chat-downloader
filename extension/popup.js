@@ -41,7 +41,7 @@ const state = {
   tabId: null,
   service: null,
   hostOk: false,
-  items: [], // [{ externalId, title }]
+  items: [], // [{ externalId, title, updatedAt }] — updatedAt은 주는 서비스만(claude·chatgpt)
   indexMap: {}, // externalId -> { sessionId, service, title, capturedAt }
   selected: new Set(),
 }
@@ -49,6 +49,10 @@ const state = {
 // background가 들고 있는 대량 동기화 상태의 팝업 쪽 사본. sync-state 응답과 sync-update
 // push가 둘 다 같은 모양이라 applyRunState() 하나로 같이 처리한다.
 let runState = { running: false, service: null, total: 0, done: 0, failed: 0, cancelled: false, lastError: null }
+
+// 직전 "전체 동기화"에서 이미 최신이라 건너뛴 개수. 완료 메시지에 덧붙인다.
+// (applyRunState가 실행 시작 시 메시지를 지우므로 시작 전에 띄우면 사라진다)
+let skippedCount = 0
 
 function callHost(msg) {
   return chrome.runtime.sendMessage({ to: 'host', msg })
@@ -386,14 +390,43 @@ async function finalizeSync() {
     setMsg(runState.lastError, true)
   } else {
     const ok = runState.total - runState.failed
-    setMsg(runState.failed > 0 ? `${ok}개 저장, ${runState.failed}개 실패` : `${ok}개 저장`, runState.failed > 0)
+    // 건너뛴 개수를 같이 보여줘야 "목록은 300개인데 왜 100개만 받았지?"가 설명된다.
+    const skipNote = skippedCount > 0 ? ` (${skippedCount}개는 이미 최신)` : ''
+    setMsg(
+      runState.failed > 0 ? `${ok}개 저장, ${runState.failed}개 실패${skipNote}` : `${ok}개 저장${skipNote}`,
+      runState.failed > 0,
+    )
   }
+}
+
+// 웹의 수정 시각이 우리가 받아둔 시각보다 나중일 때만 다시 받는다. 수정 시각을 주지 않는
+// 서비스는 판단 근거가 없으니 기존처럼 항상 받는다 — 모를 땐 덜 받는 쪽이 아니라 더 받는 쪽으로.
+function needsCapture(item) {
+  const saved = state.indexMap[item.externalId]
+  if (!saved) return true
+  if (!item.updatedAt) return true
+  const t = Date.parse(item.updatedAt)
+  return !Number.isFinite(t) || t > saved.capturedAt
 }
 
 async function onAll() {
   if (!canCapture() || state.items.length === 0 || runState.running) return
-  const ids = state.items.map((i) => i.externalId)
-  applyRunState(await syncStart(ids))
+  // 전부 다시 받으면 rate limit에 걸렸을 때 재시도가 진전을 못 만든다 — 앞쪽을 다시 받다가
+  // 같은 자리에서 또 멈추고, 정작 안 받은 뒤쪽엔 영영 못 닿는다.
+  const targets = state.items.filter(needsCapture)
+  skippedCount = state.items.length - targets.length
+  if (targets.length === 0) {
+    setMsg(`이미 모두 최신이에요 (${state.items.length}개)`)
+    return
+  }
+  const res = await syncStart(targets.map((i) => i.externalId))
+  // busyWith가 있으면 내 요청은 거절된 것이다 — 남의 진행률을 내 것처럼 그리면 안 된다.
+  if (res && res.busyWith && res.busyWith !== state.service) {
+    applyRunState(res)
+    setMsg(`${SVC_FRIENDLY[res.busyWith] || res.busyWith} 동기화가 진행 중이에요 — 끝난 뒤 다시 눌러주세요`, true)
+    return
+  }
+  applyRunState(res)
 }
 
 // #btn-selected 하나가 두 역할을 겸한다: 평소엔 "선택 가져오기", 대량 동기화가 실행
@@ -404,6 +437,8 @@ async function onSelected() {
     return
   }
   if (!canCapture() || state.selected.size === 0) return
+  // 사용자가 직접 고른 것이므로 최신 여부와 무관하게 그대로 받는다(강제 갱신 수단이기도 하다).
+  skippedCount = 0
   const ids = state.items.filter((i) => state.selected.has(i.externalId)).map((i) => i.externalId)
   applyRunState(await syncStart(ids))
 }
