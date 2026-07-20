@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>설정 — 웹 대화 다운로더</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <h1>설정</h1>
+    <p class="lede">바꾸면 바로 저장돼요. 따로 저장 버튼은 없어요.</p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="h-agent">
+      <h2 id="h-agent">기본 에이전트</h2>
+      <p class="hint">resume 명령과 세션 포맷을 결정해요.</p>
+      <div class="segmented" role="radiogroup" aria-labelledby="h-agent">
+        <input type="radio" name="defaultAgent" id="agent-claude" value="claude">
+        <label for="agent-claude">Claude</label>
+        <input type="radio" name="defaultAgent" id="agent-codex" value="codex">
+        <label for="agent-codex">Codex</label>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-sync">
+      <div class="row-head">
+        <h2 id="h-sync">자동 동기화</h2>
+        <label class="switch">
+          <input type="checkbox" id="auto-enabled">
+          <span class="track" aria-hidden="true"></span>
+          <span class="sr-only">자동 동기화 켜기</span>
+        </label>
+      </div>
+      <div class="field-row" id="interval-row">
+        <label for="auto-interval">주기</label>
+        <select id="auto-interval">
+          <option value="30">30분</option>
+          <option value="60">1시간</option>
+          <option value="180">3시간</option>
+        </select>
+      </div>
+      <p class="hint">자동 동기화는 해당 서비스 탭이 열려 있을 때만 동작해요.</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-scope">
+      <h2 id="h-scope">동기화 범위</h2>
+      <div class="radio-list" role="radiogroup" aria-labelledby="h-scope">
+        <div class="radio-row">
+          <input type="radio" name="syncScope" id="scope-all" value="all">
+          <label for="scope-all">전체</label>
+        </div>
+        <div class="radio-row">
+          <input type="radio" name="syncScope" id="scope-recent" value="recent">
+          <label for="scope-recent">최근</label>
+          <input type="number" id="recent-n" min="1" step="1" inputmode="numeric" aria-label="최근 대화 개수">
+          <span class="unit">개</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-images">
+      <div class="row-head">
+        <h2 id="h-images">이미지 임베드</h2>
+        <label class="switch">
+          <input type="checkbox" id="embed-images">
+          <span class="track" aria-hidden="true"></span>
+          <span class="sr-only">이미지 임베드 켜기</span>
+        </label>
+      </div>
+      <p class="hint">이미지를 base64로 세션에 포함해요. 끄면 세션 파일이 더 가벼워져요.</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-paths">
+      <h2 id="h-paths">저장 위치</h2>
+      <p class="hint">비워두면 기본 폴더를 써요.</p>
+      <div class="path-field">
+        <label for="path-claude">claude.ai</label>
+        <input type="text" id="path-claude" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="path-field">
+        <label for="path-chatgpt">ChatGPT</label>
+        <input type="text" id="path-chatgpt" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="path-field">
+        <label for="path-gemini">Gemini</label>
+        <input type="text" id="path-gemini" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
+      </div>
+    </section>
+  </main>
+
+  <div class="save-toast" id="save-toast" role="status" aria-live="polite">저장됨</div>
+</div>
+<script src="settings.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
