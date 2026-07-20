@@ -378,6 +378,10 @@ function applyRunState(next) {
     // 고장으로 읽힌다. 진행률 자체는 그대로 보여준다(어차피 같은 확장의 작업이라).
     if (runState.service && runState.service !== state.service) {
       setMsg(`${SVC_FRIENDLY[runState.service] || runState.service} 동기화가 진행 중이에요`)
+    } else if (skippedCount > 0) {
+      // 진행률 총량이 목록 개수보다 작은 이유를 '지금' 알려준다 — 완료 후에 알려주면
+      // 이미 "덜 받는 거 아냐?" 하고 불안해진 다음이라 늦다.
+      setMsg(`${skippedCount}개는 이미 최신이라 건너뛰고, 나머지 ${runState.total}개만 받아요`)
     } else {
       setMsg('')
     }
@@ -407,14 +411,9 @@ async function finalizeSync() {
   }
 }
 
-// 웹의 수정 시각이 우리가 받아둔 시각보다 나중일 때만 다시 받는다. 수정 시각을 주지 않는
-// 서비스는 판단 근거가 없으니 기존처럼 항상 받는다 — 모를 땐 덜 받는 쪽이 아니라 더 받는 쪽으로.
+// 판단 기준 자체는 sync-filter.js에 있다 — 자동 동기화(background)와 같은 기준을 써야 한다.
 function needsCapture(item) {
-  const saved = state.indexMap[item.externalId]
-  if (!saved) return true
-  if (!item.updatedAt) return true
-  const t = Date.parse(item.updatedAt)
-  return !Number.isFinite(t) || t > saved.capturedAt
+  return wcdNeedsCapture(item, state.indexMap[item.externalId])
 }
 
 async function onAll() {
@@ -529,6 +528,17 @@ async function init() {
     }
   }
 
+  // 2-2. 진행 중인 대량 동기화가 있으면 여기서 바로 복원한다. 아래 인덱스·목록 조회는
+  // 네트워크를 타서 수 초 이상 걸릴 수 있는데, 그동안 진행률이 안 보이면 팝업을 닫았다
+  // 열 때마다 "아무것도 진행 안 된 것처럼" 보인다. background에 물어보면 즉시 오는
+  // 로컬 정보이므로 원격 조회보다 먼저 그린다.
+  try {
+    applyRunState(await syncState())
+  } catch (e) {
+    console.error('[wcd] 동기화 상태 조회 실패', e)
+    failures.push(`동기화 상태를 확인하지 못했어요: ${e.message || e}`)
+  }
+
   // 3. 저장된 인덱스(이미 저장된 대화 ✓ 표시용) — 실패해도 목록 자체는 떠야 하므로
   // indexMap만 비워두고(✓ 표시 없이) 계속 진행한다.
   if (state.hostOk) {
@@ -546,7 +556,10 @@ async function init() {
   // 있었지만 오래됐으면 백그라운드로 다시 불러온다(화면은 2-1에서 그린 캐시 그대로 두고
   // init()도 기다리지 않는다 — 깜빡임 없음). 캐시가 아예 없었으면 지금까지처럼 여기서
   // 기다린 뒤 그린다(스켈레톤 유지).
-  if (state.service) {
+  // 이 서비스의 동기화가 도는 중이면 목록을 새로 부르지 않는다 — 같은 API에 요청을 겹쳐
+  // 쏘면 rate limit만 앞당기고, 화면은 캐시로도 충분하다(동기화가 끝나면 갱신된다).
+  const syncingHere = runState.running && runState.service === state.service
+  if (state.service && !syncingHere) {
     const isFresh = cacheEntry && Date.now() - cacheEntry.fetchedAt < LIST_CACHE_TTL_MS
     if (!isFresh) {
       if (cacheEntry) {
@@ -565,14 +578,8 @@ async function init() {
     }
   }
 
-  // 5. 진행 중인 대량 동기화가 있으면(팝업을 닫았다 다시 열었거나 다른 탭에서 시작한
-  // 경우) 그 진행률을 바로 복원한다. 실패하면 기본값(idle)인 채로 둔다.
-  try {
-    applyRunState(await syncState())
-  } catch (e) {
-    console.error('[wcd] 동기화 상태 조회 실패', e)
-    failures.push(`동기화 상태를 확인하지 못했어요: ${e.message || e}`)
-  }
+  // (진행률 복원은 2-2에서 이미 끝났다 — 여기까지 오는 동안에도 sync-update push가
+  // 계속 들어오므로 다시 조회할 필요가 없다.)
 
   // applyRunState()가 성공 경로에서 setMsg('')로 지울 수 있으므로, 실패 메시지는 그 이후에
   // 한 번에 덮어써야 확실히 보인다. 실패가 없으면 기존 메시지(빈 문자열 또는 동기화 결과

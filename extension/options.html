@@ -87,6 +87,19 @@
         <label for="path-gemini">Gemini</label>
         <input type="text" id="path-gemini" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
       </div>
+      <p class="hint">
+        세 칸에 같은 경로를 넣으면 한 폴더를 함께 써요. 중복 방지 장부도 하나로 합쳐져서,
+        터미널에서 이어갈 때 세 서비스 대화가 한 목록에 섞여 나와요.
+        서비스마다 다른 경로를 넣으면 목록도 그만큼 나뉘고요.
+      </p>
+      <p class="hint">
+        이 폴더에 실제로 생기는 건 장부 <span class="mono">.wcd-index.json</span> 하나예요.
+        대화 전문이 아니라 “웹 대화 → 저장된 세션” 짝만 적혀 있어요.
+        전문은 Claude Code가 읽는 자리에 따로 저장돼요 —
+        예를 들어 <span class="mono">~/Desktop/Archive/web-chats</span>로 설정하면
+        <span class="mono">~/.claude/projects/-Users-…-Desktop-Archive-web-chats/&lt;세션ID&gt;.jsonl</span>에 쌓여요.
+        기본 에이전트가 Codex면 <span class="mono">~/.codex/sessions/</span> 아래에 쌓이고요.
+      </p>
     </section>
   </main>
 
