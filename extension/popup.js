@@ -407,14 +407,9 @@ async function finalizeSync() {
   }
 }
 
-// 웹의 수정 시각이 우리가 받아둔 시각보다 나중일 때만 다시 받는다. 수정 시각을 주지 않는
-// 서비스는 판단 근거가 없으니 기존처럼 항상 받는다 — 모를 땐 덜 받는 쪽이 아니라 더 받는 쪽으로.
+// 판단 기준 자체는 sync-filter.js에 있다 — 자동 동기화(background)와 같은 기준을 써야 한다.
 function needsCapture(item) {
-  const saved = state.indexMap[item.externalId]
-  if (!saved) return true
-  if (!item.updatedAt) return true
-  const t = Date.parse(item.updatedAt)
-  return !Number.isFinite(t) || t > saved.capturedAt
+  return wcdNeedsCapture(item, state.indexMap[item.externalId])
 }
 
 async function onAll() {
