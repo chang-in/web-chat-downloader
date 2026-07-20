@@ -427,19 +427,7 @@ btnToggleAll.addEventListener('click', onToggleAll)
 
 // 목록 헤더의 "대화 N" 라벨을 수동 새로고침 버튼처럼 쓴다 — popup.html/css는 건드리지
 // 않기로 해서 새 버튼 대신 기존 요소에 role/tabindex/핸들러만 얹는다.
-const lblEl = document.querySelector('.lbl')
-if (lblEl) {
-  lblEl.title = '클릭하면 목록을 새로 불러와요'
-  lblEl.setAttribute('role', 'button')
-  lblEl.tabIndex = 0
-  lblEl.addEventListener('click', onManualRefresh)
-  lblEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onManualRefresh()
-    }
-  })
-}
+document.getElementById('btn-refresh').addEventListener('click', onManualRefresh)
 
 // ───────────────────── 초기화 ─────────────────────
 
