@@ -262,20 +262,32 @@ btnToggleAll.addEventListener('click', onToggleAll)
 
 // ───────────────────── 초기화 ─────────────────────
 
+// init의 각 단계는 독립적으로 실패할 수 있다 — 한 단계가 던져도 나머지 단계와
+// renderList()는 반드시 실행돼야 한다(그래야 count가 계속 "—"로 멈춰있는 채로 원인도
+// 모르고 목록도 안 뜨는 상황을 피할 수 있다). 그래서 각 await를 자기 try/catch로 감싸고,
+// 실패 사유를 모아뒀다가 마지막에 한 번에 #msg로 보여준다.
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   state.tabId = tab.id
 
+  const failures = []
+
   // 1. 호스트 ping
   app.dataset.host = 'checking'
-  const ping = await callHost({ type: 'ping' })
-  state.hostOk = !!(ping && ping.ok)
+  try {
+    const ping = await callHost({ type: 'ping' })
+    state.hostOk = !!(ping && ping.ok)
+  } catch (e) {
+    console.error('[wcd] host ping 실패', e)
+    state.hostOk = false
+    failures.push(`호스트 연결을 확인하지 못했어요: ${e.message || e}`)
+  }
   app.dataset.host = state.hostOk ? 'ok' : 'off'
   hostState.textContent = state.hostOk ? '연결됨' : '호스트 없음'
 
   // 2. 콘텐츠 스크립트 주입 + 서비스 감지. 매니페스트가 지원 안 하는 origin이거나(chrome://
   // 등) 페이지가 host_permissions 밖이면 executeScript/sendMessage가 던진다 — 그건 그냥
-  // "지원하지 않는 페이지"로 취급한다.
+  // "지원하지 않는 페이지"로 취급한다(에러가 아니라 정상적인 상태이므로 #msg에는 안 띄운다).
   let detected = { service: null, id: null }
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })
@@ -289,22 +301,42 @@ async function init() {
 
   updateActionButtons()
 
-  // 3. 저장된 인덱스(이미 저장된 대화 ✓ 표시용)
-  if (state.hostOk) await refreshIndex()
+  // 3. 저장된 인덱스(이미 저장된 대화 ✓ 표시용) — 실패해도 목록 자체는 떠야 하므로
+  // indexMap만 비워두고(✓ 표시 없이) 계속 진행한다.
+  if (state.hostOk) {
+    try {
+      await refreshIndex()
+    } catch (e) {
+      console.error('[wcd] 인덱스 갱신 실패', e)
+      state.indexMap = {}
+      failures.push(`인덱스를 불러오지 못했어요: ${e.message || e}`)
+    }
+  }
 
   // 4. 대화 목록
   if (state.service) {
     try {
       state.items = await sendToTab({ cmd: 'list' })
     } catch (e) {
+      console.error('[wcd] 목록 조회 실패', e)
       state.items = []
-      setMsg(e.message || '목록을 불러오지 못했어요.', true)
+      failures.push(`목록을 불러오지 못했어요: ${e.message || e}`)
     }
   }
 
   // 5. 진행 중인 대량 동기화가 있으면(팝업을 닫았다 다시 열었거나 다른 탭에서 시작한
-  // 경우) 그 진행률을 바로 복원한다.
-  applyRunState(await syncState())
+  // 경우) 그 진행률을 바로 복원한다. 실패하면 기본값(idle)인 채로 둔다.
+  try {
+    applyRunState(await syncState())
+  } catch (e) {
+    console.error('[wcd] 동기화 상태 조회 실패', e)
+    failures.push(`동기화 상태를 확인하지 못했어요: ${e.message || e}`)
+  }
+
+  // applyRunState()가 성공 경로에서 setMsg('')로 지울 수 있으므로, 실패 메시지는 그 이후에
+  // 한 번에 덮어써야 확실히 보인다. 실패가 없으면 기존 메시지(빈 문자열 또는 동기화 결과
+  // 요약)를 그대로 둔다.
+  if (failures.length > 0) setMsg(failures.join(' · '), true)
 
   renderList()
   updateActionButtons()

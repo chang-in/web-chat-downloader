@@ -21,6 +21,8 @@ const BADGE_FAIL = '#D14343' // 실패/에러 표시
 const SYNC_DELAY_MS = 350 // 항목 사이 요청 간격(서비스 API에 대한 예의) — 기존 popup.js 값 그대로 이전
 const DONE_BADGE_MS = 3000
 const FAIL_BADGE_MS = 5000
+const HOST_TIMEOUT_MS = 15000 // 응답도 disconnect도 안 오는(포트가 먹통이 된) 경우의 안전망 —
+// 없으면 popup 쪽 sendMessage가 영영 pending 상태로 남는다.
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -43,12 +45,15 @@ function callHost(msg) {
     }
 
     let settled = false
+    let timer
     const finish = (res) => {
       if (settled) return
       settled = true
+      clearTimeout(timer)
       resolve(res)
       try { port.disconnect() } catch (e) { /* 이미 끊겼으면 무시 */ }
     }
+    timer = setTimeout(() => finish({ ok: false, error: 'host-timeout' }), HOST_TIMEOUT_MS)
 
     port.onMessage.addListener((res) => finish(res))
     // 호스트 매니페스트 미설치, 실행 파일 없음 등으로 애초에 연결이 안 되면 메시지 없이
