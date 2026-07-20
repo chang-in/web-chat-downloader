@@ -21,11 +21,22 @@ export const geminiAdapter = {
   //   사용자=turn[2][0][0], 모델=turn[3][0][0][1][0], 타임스탬프=turn[4][0](epoch 초).
   // 각 값은 문자열/숫자일 때만 채택(타입 가드)하여 레이아웃 변경 시 오염 대신 누락으로 실패한다.
   normalize(raw: any): NormalizedChat {
-    const inner = parseBatchEnvelope(raw.rawText, 'hNvQHb')
-    const turns = inner && Array.isArray(inner) && Array.isArray(inner[0]) ? inner[0] : null
+    // 한 응답에는 최근 50교환까지만 담기므로 content.js가 이어받기 토큰으로 여러 페이지를
+    // 받아 rawTexts에 순서대로(최신 → 오래된) 넣어준다. 각 페이지의 inner[0]이 이미 시간
+    // 역순이니, 페이지 순서대로 이어붙이면 전체가 하나의 시간 역순 배열이 된다.
+    // rawTexts가 없는 구버전 payload는 rawText 한 장으로 취급한다.
+    const texts: string[] = (Array.isArray(raw.rawTexts) ? raw.rawTexts : [raw.rawText]).filter(
+      (t: unknown): t is string => typeof t === 'string',
+    )
+
+    const turns: any[] = []
+    for (const text of texts) {
+      const inner = parseBatchEnvelope(text, 'hNvQHb')
+      if (inner && Array.isArray(inner) && Array.isArray(inner[0])) turns.push(...inner[0])
+    }
 
     const messages: NormalizedMessage[] = []
-    if (turns) {
+    if (turns.length) {
       // 시간 역순 → 역순회로 시간순 정렬
       for (let i = turns.length - 1; i >= 0; i--) {
         const t = turns[i]
