@@ -26,4 +26,23 @@ describe('handleCapture', () => {
     const dir = mkdtempSync(join(tmpdir(),'wcd-'))
     expect((handleCapture({ foo: 1 }, dir) as any).error).toBeTruthy()
   })
+  it('agent 생략(기본 claude) → resumeHint는 "claude --resume <id>"', () => {
+    const dir = mkdtempSync(join(tmpdir(),'wcd-'))
+    const r = handleCapture(raw, dir) as any
+    expect(r.resumeHint).toBe(`claude --resume ${r.sessionId}`)
+  })
+  it('agent:"codex" → codex 라이터로 기록되고 resumeHint는 "codex resume <id>"', () => {
+    const dir = mkdtempSync(join(tmpdir(),'wcd-'))
+    const r = handleCapture(raw, dir, 'codex') as any
+    expect(r.sessionId).toBeTruthy()
+    expect(r.resumeHint).toBe(`codex resume ${r.sessionId}`)
+  })
+  it('같은 externalId를 claude→codex 순서로 캡처해도 sessionId(uuid)는 그대로 공유한다(디렉터리 트리가 달라 충돌 없음)', () => {
+    const dir = mkdtempSync(join(tmpdir(),'wcd-'))
+    const a = handleCapture(raw, dir, 'claude') as any
+    const b = handleCapture(raw, dir, 'codex') as any
+    expect(b.sessionId).toBe(a.sessionId)
+    const c = handleCapture(raw, dir, 'claude') as any
+    expect(c.sessionId).toBe(a.sessionId)
+  })
 })
