@@ -2,7 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { buildManifest, findExtensionIds, installHost, scanChromeProfilesForExtension } from '../src/install-host'
+import {
+  buildManifest,
+  defaultChromeUserDataDir,
+  defaultManifestDir,
+  findExtensionIds,
+  installHost,
+  launcherFileName,
+  launcherScript,
+  scanChromeProfilesForExtension,
+} from '../src/install-host'
 
 describe('buildManifest', () => {
   it('name·type·allowed_origins 형식이 Chrome Native Messaging 스펙대로다', () => {
@@ -38,6 +47,55 @@ describe('installHost', () => {
 
     const mode = statSync(launcherPath).mode & 0o777
     expect(mode).toBe(0o755)
+  })
+})
+
+describe('플랫폼별 경로', () => {
+  const home = '/home/x'
+
+  it('매니페스트 디렉터리가 OS 규칙을 따른다', () => {
+    expect(defaultManifestDir('darwin', home)).toBe('/home/x/Library/Application Support/Google/Chrome/NativeMessagingHosts')
+    expect(defaultManifestDir('linux', home)).toBe('/home/x/.config/google-chrome/NativeMessagingHosts')
+    // Windows는 디렉터리 규칙이 없다 — 레지스트리가 경로를 가리키므로 런처 옆에 둔다.
+    expect(defaultManifestDir('win32', home)).toBe('/home/x/.web-chat-downloader')
+  })
+
+  it('Chrome 프로필 디렉터리가 OS 규칙을 따른다', () => {
+    expect(defaultChromeUserDataDir('darwin', home)).toBe('/home/x/Library/Application Support/Google/Chrome')
+    expect(defaultChromeUserDataDir('linux', home)).toBe('/home/x/.config/google-chrome')
+    expect(defaultChromeUserDataDir('win32', home)).toContain(join('Google', 'Chrome', 'User Data'))
+  })
+
+  it('런처는 POSIX에서 셰뱅 sh, Windows에서 .bat이다', () => {
+    expect(launcherFileName('darwin')).toBe('host.sh')
+    expect(launcherFileName('linux')).toBe('host.sh')
+    expect(launcherFileName('win32')).toBe('host.bat')
+
+    expect(launcherScript('linux', '/usr/bin/node', '/r/dist/cli.js')).toContain('#!/bin/sh')
+    const bat = launcherScript('win32', 'C:\\node.exe', 'C:\\r\\dist\\cli.js')
+    expect(bat).toContain('@echo off')
+    expect(bat).toContain('host %*') // Chrome이 넘기는 인자를 그대로 전달
+    expect(bat).not.toContain('#!/bin/sh')
+  })
+})
+
+describe('installHost — Windows', () => {
+  it('.bat 런처를 쓰고 chmod를 시도하지 않는다', () => {
+    const manifestDir = mkdtempSync(join(tmpdir(), 'wcd-manifest-win-'))
+    const launcherDir = mkdtempSync(join(tmpdir(), 'wcd-launcher-win-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'wcd-repo-win-'))
+
+    // registerRegistry:false — 테스트가 실제 레지스트리를 건드리지 않게 한다.
+    const { launcherPath, manifestPath } = installHost('winextensionid123', {
+      manifestDir, launcherDir, repoRoot, platform: 'win32', registerRegistry: false,
+    })
+
+    expect(launcherPath.endsWith('host.bat')).toBe(true)
+    const script = readFileSync(launcherPath, 'utf-8')
+    expect(script).toContain('@echo off')
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+    expect(manifest.path).toBe(launcherPath)
   })
 })
 

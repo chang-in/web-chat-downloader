@@ -179,7 +179,17 @@ if (!window.__wcdContentInjected) {
       if (pageItems.length === 0) { reachedEnd = true; break }
       // offset은 '요청한 개수'가 아니라 '실제로 받은 개수'만큼만 전진시킨다. PAGE_SIZE만큼
       // 밀면 짧은 페이지 뒤에 오는 항목들을 아무도 못 본 채 건너뛴다(구멍이 생긴다).
-      offset += pageItems.length
+      //
+      // 여기에 더해 한 페이지를 OVERLAP만큼 겹쳐 읽는다. order=updated는 정렬 키가 계속
+      // 변하는 필드라, 조회 도중 어떤 대화가 갱신되면 그 뒤 항목들이 앞으로 당겨지면서
+      // 아직 못 본 항목이 offset을 뛰어넘어 사라진다. dedupe는 '중복'만 막을 뿐 이 '누락'은
+      // 못 잡는다(이미 본 게 또 오는 건 걸러지지만, 안 본 게 건너뛰어지는 건 아무도 모른다).
+      // 이 API는 커서를 제공하지 않아 근본 해결이 불가능하므로 겹쳐 읽어 확률을 낮춘다.
+      // 겹친 항목은 seen이 걸러내므로 결과에는 영향이 없고, 요청 수만 약간 늘어난다.
+      // 짧은 페이지에서는 겹치지 않는다 — 전진 폭이 너무 작아져 같은 구간을 맴돌 수 있다.
+      const OVERLAP = 4
+      const step = pageItems.length >= PAGE_SIZE ? pageItems.length - OVERLAP : pageItems.length
+      offset += Math.max(1, step)
       await sleep(PAGE_DELAY)
     }
     if (!reachedEnd) {
