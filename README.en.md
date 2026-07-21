@@ -89,7 +89,7 @@ The extension ID is detected automatically. That's it.
 Open a **conversation page** on claude.ai · ChatGPT · Gemini and click the extension icon.
 
 <p align="center">
-  <img src="docs/assets/popup.png" alt="Extension popup — conversation list and import buttons" width="380">
+  <img src="docs/assets/en/popup.png" alt="Extension popup — conversation list and import buttons" width="380">
 </p>
 
 | Button | What it does |
@@ -103,7 +103,7 @@ Each imported conversation shows **the exact command to run** underneath. Click 
 For details, open the **?** button at the top right of the popup.
 
 <p align="center">
-  <img src="docs/assets/help.png" alt="Help screen — step-by-step guide from install to resume" width="640">
+  <img src="docs/assets/en/help.png" alt="Help screen — step-by-step guide from install to resume" width="640">
 </p>
 
 ## Settings
@@ -111,7 +111,7 @@ For details, open the **?** button at the top right of the popup.
 Open the **⚙** button in the popup.
 
 <p align="center">
-  <img src="docs/assets/options.png" alt="Settings screen — language, default agent, auto sync, storage path" width="420">
+  <img src="docs/assets/en/options.png" alt="Settings screen — language, default agent, auto sync, storage path" width="420">
 </p>
 
 - **Language** — Auto (follows your browser), 한국어, or English
