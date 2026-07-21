@@ -6,6 +6,7 @@
 // 토스트로 안심시킨다.
 
 const els = {
+  langRadios: document.querySelectorAll('input[name="language"]'),
   agentRadios: document.querySelectorAll('input[name="defaultAgent"]'),
   autoEnabled: document.getElementById('auto-enabled'),
   autoInterval: document.getElementById('auto-interval'),
@@ -46,6 +47,7 @@ async function save(patch) {
 async function init() {
   const s = await wcdLoadSettings()
 
+  for (const r of els.langRadios) r.checked = r.value === (s.language || 'auto')
   for (const r of els.agentRadios) r.checked = r.value === s.defaultAgent
 
   els.autoEnabled.checked = s.autoSync.enabled
@@ -67,6 +69,15 @@ async function init() {
 }
 
 function wire() {
+  for (const r of els.langRadios) {
+    r.addEventListener('change', async () => {
+      if (!r.checked) return
+      await save({ language: r.value })
+      // 언어는 바꾼 즉시 눈에 보여야 납득이 된다. i18n.js 가 노출한 재적용을 부른다.
+      if (typeof wcdI18nRun === 'function') await wcdI18nRun()
+    })
+  }
+
   for (const r of els.agentRadios) {
     r.addEventListener('change', () => {
       if (r.checked) save({ defaultAgent: r.value })

@@ -165,5 +165,14 @@
   },
   "extDesc": {
     "message": "Save claude.ai, ChatGPT and Gemini chats as local Claude Code / Codex sessions and continue them in your terminal."
+  },
+  "opt_language": {
+    "message": "Language"
+  },
+  "opt_languageHint": {
+    "message": "Leave on Auto to follow your browser language."
+  },
+  "opt_langAuto": {
+    "message": "Auto"
   }
 }

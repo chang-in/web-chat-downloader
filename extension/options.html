@@ -13,6 +13,19 @@
   </header>
 
   <main>
+    <section class="card" aria-labelledby="h-lang">
+      <h2 id="h-lang" data-i18n="opt_language">언어</h2>
+      <p class="hint" data-i18n="opt_languageHint">자동으로 두면 브라우저 언어를 따라가요.</p>
+      <div class="segmented" role="radiogroup" aria-labelledby="h-lang">
+        <input type="radio" name="language" id="lang-auto" value="auto">
+        <label for="lang-auto" data-i18n="opt_langAuto">자동</label>
+        <input type="radio" name="language" id="lang-ko" value="ko">
+        <label for="lang-ko">한국어</label>
+        <input type="radio" name="language" id="lang-en" value="en">
+        <label for="lang-en">English</label>
+      </div>
+    </section>
+
     <section class="card" aria-labelledby="h-agent">
       <h2 id="h-agent" data-i18n="opt_defaultAgent">기본 에이전트</h2>
       <p class="hint" data-i18n="opt_agentHint">resume 명령과 세션 포맷을 결정해요.</p>

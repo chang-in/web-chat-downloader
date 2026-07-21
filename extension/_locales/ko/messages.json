@@ -165,5 +165,14 @@
   },
   "extDesc": {
     "message": "claude.ai · ChatGPT · Gemini 웹 대화를 로컬 Claude Code / Codex 세션으로 저장해 터미널에서 이어갑니다."
+  },
+  "opt_language": {
+    "message": "언어"
+  },
+  "opt_languageHint": {
+    "message": "자동으로 두면 브라우저 언어를 따라가요."
+  },
+  "opt_langAuto": {
+    "message": "자동"
   }
 }
