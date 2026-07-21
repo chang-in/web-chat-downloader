@@ -45,11 +45,15 @@ function readVersion(): string {
 // 다르고(리눅스 한국어 환경은 ~/바탕화면) Windows는 OneDrive로 리다이렉트되기도 해서
 // 새 기본값은 ~/web-chats로 옮겼다. 다만 이전 경로가 이미 있으면 그쪽을 계속 쓴다 —
 // 기존 사용자의 데이터가 갑자기 다른 곳으로 갈라지지 않게 하기 위함이다.
-export function resolveCwd(): string {
+// home·exists를 주입 가능하게 둔 이유: 기본값이 '기존 폴더가 있느냐'에 따라 갈리므로,
+// 실제 홈 디렉터리를 그대로 쓰면 테스트 결과가 실행하는 컴퓨터에 따라 달라진다.
+export function resolveCwd(opts: { home?: string; exists?: (p: string) => boolean } = {}): string {
   if (process.env.WCD_CWD) return process.env.WCD_CWD
-  const legacy = join(homedir(), 'Desktop', 'Archive', 'web-chats')
-  if (existsSync(legacy)) return legacy
-  return join(homedir(), 'web-chats')
+  const home = opts.home ?? homedir()
+  const exists = opts.exists ?? existsSync
+  const legacy = join(home, 'Desktop', 'Archive', 'web-chats')
+  if (exists(legacy)) return legacy
+  return join(home, 'web-chats')
 }
 
 // 확장 프로그램이 보내는 메시지 하나를 처리해서 응답 페이로드를 만든다(프레이밍과 무관한 순수 로직).
