@@ -1,0 +1,178 @@
+{
+  "popup_checkingService": {
+    "message": "서비스 확인 중"
+  },
+  "popup_checkingHost": {
+    "message": "호스트 확인 중"
+  },
+  "popup_importCurrent": {
+    "message": "이 대화 가져오기"
+  },
+  "popup_syncAll": {
+    "message": "전체 동기화"
+  },
+  "popup_chats": {
+    "message": "대화"
+  },
+  "popup_refresh": {
+    "message": "새로고침"
+  },
+  "popup_selectAll": {
+    "message": "전체 선택"
+  },
+  "popup_emptyHint": {
+    "message": "대화 목록을 불러오려면 위 버튼을 누르세요."
+  },
+  "popup_importSelected": {
+    "message": "선택 가져오기"
+  },
+  "popup_settings": {
+    "message": "설정"
+  },
+  "popup_help": {
+    "message": "사용법 보기"
+  },
+  "popup_refreshTitle": {
+    "message": "목록을 새로 불러와요"
+  },
+  "popup_connected": {
+    "message": "연결됨"
+  },
+  "popup_noHost": {
+    "message": "호스트 없음"
+  },
+  "popup_unsupportedPage": {
+    "message": "지원하지 않는 페이지"
+  },
+  "popup_noChats": {
+    "message": "대화가 없어요."
+  },
+  "popup_untitled": {
+    "message": "(제목 없음)"
+  },
+  "popup_justNow": {
+    "message": "방금 전"
+  },
+  "popup_cancelSync": {
+    "message": "동기화 취소"
+  },
+  "popup_saved": {
+    "message": "저장했어요."
+  },
+  "popup_failed": {
+    "message": "실패했어요."
+  },
+  "popup_captureFailed": {
+    "message": "캡처 실패"
+  },
+  "popup_service": {
+    "message": "서비스"
+  },
+  "popup_inAMinuteOrTwo": {
+    "message": "1~2분 뒤"
+  },
+  "popup_listFetchFailed": {
+    "message": "목록을 가져오지 못했어요 — 잠시 후 다시 열어보세요"
+  },
+  "opt_title": {
+    "message": "설정 — 웹 대화 다운로더"
+  },
+  "opt_autosaveHint": {
+    "message": "바꾸면 바로 저장돼요. 따로 저장 버튼은 없어요."
+  },
+  "opt_defaultAgent": {
+    "message": "기본 에이전트"
+  },
+  "opt_agentHint": {
+    "message": "resume 명령과 세션 포맷을 결정해요."
+  },
+  "opt_autoSync": {
+    "message": "자동 동기화"
+  },
+  "opt_autoSyncOn": {
+    "message": "자동 동기화 켜기"
+  },
+  "opt_interval": {
+    "message": "주기"
+  },
+  "opt_30min": {
+    "message": "30분"
+  },
+  "opt_1hour": {
+    "message": "1시간"
+  },
+  "opt_3hours": {
+    "message": "3시간"
+  },
+  "opt_autoSyncHint": {
+    "message": "자동 동기화는 해당 서비스 탭이 열려 있을 때만 동작해요."
+  },
+  "opt_syncScope": {
+    "message": "동기화 범위"
+  },
+  "opt_all": {
+    "message": "전체"
+  },
+  "opt_recent": {
+    "message": "최근"
+  },
+  "opt_countUnit": {
+    "message": "개"
+  },
+  "opt_embedImages": {
+    "message": "이미지 임베드"
+  },
+  "opt_embedOn": {
+    "message": "이미지 임베드 켜기"
+  },
+  "opt_embedHint": {
+    "message": "이미지를 base64로 세션에 포함해요. 끄면 세션 파일이 더 가벼워져요."
+  },
+  "opt_storagePath": {
+    "message": "저장 위치"
+  },
+  "opt_pathHint": {
+    "message": "비워두면 기본 폴더를 써요."
+  },
+  "opt_saved": {
+    "message": "저장됨"
+  },
+  "opt_recentCount": {
+    "message": "최근 대화 개수"
+  },
+  "opt_sharedPathHint": {
+    "message": "세 칸에 같은 경로를 넣으면 한 폴더를 함께 써요. 중복 방지 장부도 하나로 합쳐져서, 터미널에서 이어갈 때 세 서비스 대화가 한 목록에 섞여 나와요. 서비스마다 다른 경로를 넣으면 목록도 그만큼 나뉘고요."
+  },
+  "opt_indexHint": {
+    "message": "이 폴더에 실제로 생기는 건 장부 $1 하나예요. 대화 전문이 아니라 “웹 대화 → 저장된 세션” 짝만 적혀 있어요. 전문은 Claude Code가 읽는 자리에 따로 저장돼요 — 예를 들어 $2로 설정하면 $3에 쌓여요. 기본 에이전트가 Codex면 $4 아래에 쌓이고요.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      },
+      "p4": {
+        "content": "$4"
+      }
+    }
+  },
+  "extName": {
+    "message": "웹 대화 다운로더"
+  },
+  "extDesc": {
+    "message": "claude.ai · ChatGPT · Gemini 웹 대화를 로컬 Claude Code / Codex 세션으로 저장해 터미널에서 이어갑니다."
+  },
+  "opt_language": {
+    "message": "언어"
+  },
+  "opt_languageHint": {
+    "message": "자동으로 두면 브라우저 언어를 따라가요."
+  },
+  "opt_langAuto": {
+    "message": "자동"
+  }
+}

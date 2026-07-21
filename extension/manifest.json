@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "웹 대화 다운로더",
-  "description": "claude.ai · ChatGPT · Gemini 웹 대화를 로컬 Claude Code 세션(.jsonl)으로 저장해서 claude --resume으로 이어갈 수 있게 해줍니다.",
+  "default_locale": "ko",
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDesc__",
   "version": "0.1.0",
   "action": {
     "default_popup": "popup.html",
