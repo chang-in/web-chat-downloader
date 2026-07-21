@@ -13,6 +13,10 @@
   <img alt="서버 불필요" src="https://img.shields.io/badge/서버-불필요-black">
 </p>
 
+<p align="center">
+  <b>한국어</b> · <a href="./README.en.md">English</a>
+</p>
+
 ---
 
 ## 이런 적 있으신가요
@@ -23,7 +27,7 @@
 이 도구는 그 대화를 **로컬 세션 파일로 그대로 옮겨서**, 터미널에서 하던 얘기를 이어가게 해줍니다.
 
 ```bash
-cd ~/Desktop/Archive/web-chats
+cd ~/web-chats
 claude --resume <세션 ID>
 # 웹에서 하던 대화가 그대로 이어집니다
 ```
@@ -114,6 +118,7 @@ claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을
   <img src="docs/assets/options.png" alt="설정 화면 — 기본 에이전트·자동 동기화·저장 위치" width="420">
 </p>
 
+- **언어** — 자동(브라우저 언어) · 한국어 · English
 - **기본 에이전트** — Claude Code / Codex 중 어느 형식으로 저장할지
 - **저장 위치** — 서비스별로 폴더를 나눌 수 있습니다 (나누면 재개 목록도 서비스별로 깔끔해집니다)
 - **자동 동기화** — 30분 / 1시간 / 3시간 주기 (해당 서비스 탭이 열려 있을 때 동작합니다)

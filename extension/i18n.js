@@ -1,0 +1,97 @@
+// UI 문자열 치환. chrome.i18n 대신 _locales 카탈로그를 직접 읽는다.
+//
+// chrome.i18n 은 브라우저 언어만 따르고 런타임에 바꿀 수 없다. 설정에서 언어를
+// 고를 수 있게 하려면 카탈로그를 직접 로드하는 수밖에 없다. 형식은 그대로
+// _locales/<lang>/messages.json 을 쓰므로, 나중에 chrome.i18n 으로 되돌리거나
+// 웹스토어 다국어 메타데이터를 함께 쓰는 데 문제가 없다.
+//
+//   <span data-i18n="popup_chats">대화</span>        → 텍스트
+//   <button data-i18n-title="popup_refreshTitle">    → title 속성
+//   <p data-i18n-html="opt_indexHint">…<span data-i18n-sub>…</span>…</p>
+//                                                    → 조각을 $1..$n 자리에 되꽂음
+//
+// HTML 에 남은 한국어는 폴백이다. 카탈로그를 못 읽어도 화면이 비지 않는다.
+
+const WCD_SUPPORTED_LANGS = ['ko', 'en']
+const WCD_FALLBACK_LANG = 'ko'
+
+// 'auto' 면 브라우저 언어를 따른다. 목록에 없는 언어는 폴백.
+function wcdResolveLang(pref) {
+  if (pref && pref !== 'auto' && WCD_SUPPORTED_LANGS.includes(pref)) return pref
+  const ui = (chrome.i18n?.getUILanguage?.() || navigator.language || '').slice(0, 2)
+  return WCD_SUPPORTED_LANGS.includes(ui) ? ui : WCD_FALLBACK_LANG
+}
+
+async function wcdLoadCatalog(lang) {
+  try {
+    const res = await fetch(chrome.runtime.getURL(`_locales/${lang}/messages.json`))
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// 설정을 읽되, settings.js 가 없는 페이지에서도 동작하게 storage 를 직접 본다.
+async function wcdPreferredLang() {
+  try {
+    const got = await chrome.storage.local.get('settings')
+    return wcdResolveLang(got?.settings?.language)
+  } catch {
+    return wcdResolveLang(null)
+  }
+}
+
+function wcdApply(catalog) {
+  const msg = (key, subs) => {
+    const entry = key && catalog[key]
+    if (!entry) return ''
+    let out = entry.message
+    if (subs) subs.forEach((s, i) => { out = out.split('$' + (i + 1)).join(s) })
+    return out
+  }
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const t = msg(el.dataset.i18n)
+    if (t) el.textContent = t
+  })
+
+  const attrs = [['i18nTitle', 'title'], ['i18nLabel', 'aria-label'], ['i18nPlaceholder', 'placeholder']]
+  for (const [dataKey, attr] of attrs) {
+    document.querySelectorAll(`[data-${attr === 'aria-label' ? 'i18n-label' : 'i18n-' + attr}]`).forEach((el) => {
+      const t = msg(el.dataset[dataKey])
+      if (t) el.setAttribute(attr, t)
+    })
+  }
+
+  // 문장 중간에 코드 조각이 끼는 문단. innerHTML 을 쓰지 않고 원본 노드를 옮겨 붙인다 —
+  // 문자열을 HTML 로 파싱하는 경로를 두지 않기 위해서다.
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    const parts = Array.from(el.querySelectorAll('[data-i18n-sub]'))
+    if (!parts.length) return
+    const t = msg(el.dataset.i18nHtml, parts.map((_, i) => ' ' + i + ' '))
+    if (!t) return
+    const frag = document.createDocumentFragment()
+    for (const chunk of t.split(/ (\d+) /)) {
+      if (!chunk) continue
+      if (/^\d+$/.test(chunk) && parts[Number(chunk)]) frag.appendChild(parts[Number(chunk)])
+      else frag.appendChild(document.createTextNode(chunk))
+    }
+    el.replaceChildren(frag)
+  })
+
+  const title = msg(document.documentElement.dataset.i18nTitle)
+  if (title) document.title = title
+}
+
+async function wcdI18nRun() {
+  const lang = await wcdPreferredLang()
+  const catalog = (await wcdLoadCatalog(lang)) || (await wcdLoadCatalog(WCD_FALLBACK_LANG))
+  if (catalog) {
+    wcdApply(catalog)
+    document.documentElement.lang = lang
+  }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wcdI18nRun)
+else wcdI18nRun()

@@ -1,0 +1,178 @@
+{
+  "popup_checkingService": {
+    "message": "Checking service"
+  },
+  "popup_checkingHost": {
+    "message": "Checking host"
+  },
+  "popup_importCurrent": {
+    "message": "Import this chat"
+  },
+  "popup_syncAll": {
+    "message": "Sync all"
+  },
+  "popup_chats": {
+    "message": "Chats"
+  },
+  "popup_refresh": {
+    "message": "Refresh"
+  },
+  "popup_selectAll": {
+    "message": "Select all"
+  },
+  "popup_emptyHint": {
+    "message": "Press a button above to load your chats."
+  },
+  "popup_importSelected": {
+    "message": "Import selected"
+  },
+  "popup_settings": {
+    "message": "Settings"
+  },
+  "popup_help": {
+    "message": "How to use"
+  },
+  "popup_refreshTitle": {
+    "message": "Reload the list"
+  },
+  "popup_connected": {
+    "message": "Connected"
+  },
+  "popup_noHost": {
+    "message": "Host not found"
+  },
+  "popup_unsupportedPage": {
+    "message": "Unsupported page"
+  },
+  "popup_noChats": {
+    "message": "No chats found."
+  },
+  "popup_untitled": {
+    "message": "(Untitled)"
+  },
+  "popup_justNow": {
+    "message": "Just now"
+  },
+  "popup_cancelSync": {
+    "message": "Cancel sync"
+  },
+  "popup_saved": {
+    "message": "Saved."
+  },
+  "popup_failed": {
+    "message": "Failed."
+  },
+  "popup_captureFailed": {
+    "message": "Capture failed"
+  },
+  "popup_service": {
+    "message": "The service"
+  },
+  "popup_inAMinuteOrTwo": {
+    "message": "in a minute or two"
+  },
+  "popup_listFetchFailed": {
+    "message": "Couldn't load the list — try again in a moment"
+  },
+  "opt_title": {
+    "message": "Settings — Web Chat Downloader"
+  },
+  "opt_autosaveHint": {
+    "message": "Changes save automatically. There's no save button."
+  },
+  "opt_defaultAgent": {
+    "message": "Default agent"
+  },
+  "opt_agentHint": {
+    "message": "Decides the resume command and session format."
+  },
+  "opt_autoSync": {
+    "message": "Auto sync"
+  },
+  "opt_autoSyncOn": {
+    "message": "Enable auto sync"
+  },
+  "opt_interval": {
+    "message": "Interval"
+  },
+  "opt_30min": {
+    "message": "30 minutes"
+  },
+  "opt_1hour": {
+    "message": "1 hour"
+  },
+  "opt_3hours": {
+    "message": "3 hours"
+  },
+  "opt_autoSyncHint": {
+    "message": "Auto sync only runs while a tab for that service is open."
+  },
+  "opt_syncScope": {
+    "message": "Sync scope"
+  },
+  "opt_all": {
+    "message": "All"
+  },
+  "opt_recent": {
+    "message": "Recent"
+  },
+  "opt_countUnit": {
+    "message": "chats"
+  },
+  "opt_embedImages": {
+    "message": "Embed images"
+  },
+  "opt_embedOn": {
+    "message": "Embed images in sessions"
+  },
+  "opt_embedHint": {
+    "message": "Embeds images as base64. Turn off for lighter session files."
+  },
+  "opt_storagePath": {
+    "message": "Storage path"
+  },
+  "opt_pathHint": {
+    "message": "Leave empty to use the default folder."
+  },
+  "opt_saved": {
+    "message": "Saved"
+  },
+  "opt_recentCount": {
+    "message": "Number of recent chats"
+  },
+  "opt_sharedPathHint": {
+    "message": "Put the same path in all three and they share one folder — the dedupe index merges too, so all three services show up in a single resume list. Give each service its own path and the lists split accordingly."
+  },
+  "opt_indexHint": {
+    "message": "The only file created here is the index $1. It holds pairs of “web chat → saved session”, not the chats themselves. Full transcripts go where Claude Code reads them — set $2 and they land in $3. With Codex as the default agent they go under $4 instead.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      },
+      "p4": {
+        "content": "$4"
+      }
+    }
+  },
+  "extName": {
+    "message": "Web Chat Downloader"
+  },
+  "extDesc": {
+    "message": "Save claude.ai, ChatGPT and Gemini chats as local Claude Code / Codex sessions and continue them in your terminal."
+  },
+  "opt_language": {
+    "message": "Language"
+  },
+  "opt_languageHint": {
+    "message": "Leave on Auto to follow your browser language."
+  },
+  "opt_langAuto": {
+    "message": "Auto"
+  }
+}

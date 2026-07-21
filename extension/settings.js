@@ -10,6 +10,7 @@ const WCD_DEFAULTS = {
   syncScope: { recentOnly: false, recentN: 50 }, // 최근 N개만 동기화할지
   embedImages: true, // 이미지를 세션에 base64로 넣을지(끄면 세션이 가벼워짐)
   storagePath: { claude: null, chatgpt: null, gemini: null }, // null이면 기본 폴더 사용
+  language: 'auto', // 'auto' | 'ko' | 'en' — auto면 브라우저 언어를 따른다
 }
 
 async function wcdLoadSettings() {
