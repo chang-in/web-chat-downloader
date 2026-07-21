@@ -53,6 +53,14 @@ claude --resume <세션 ID>
 
 덕분에 상시 서버도, 인증서도, CORS 설정도 필요 없습니다.
 
+## 요구사항
+
+| | |
+|---|---|
+| **OS** | **macOS** — Native Messaging 호스트 설치가 macOS 경로만 지원합니다. Windows·Linux는 아직 지원하지 않습니다. |
+| **Node.js** | 20 이상 |
+| **브라우저** | Google Chrome |
+
 ## 시작하기
 
 **1. 내려받아 빌드합니다**
@@ -120,6 +128,37 @@ claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을
 - **웹을 원본으로 봅니다.** 웹에서 대화를 더 이어간 뒤 다시 가져오면 최신 내용으로 갱신되지만,
   로컬에서 `--resume`으로 이어간 내용은 덮일 수 있습니다.
 - 이 도구는 **본인 계정의 대화를 본인 컴퓨터로** 내려받는 용도입니다. 외부로 데이터를 보내지 않습니다.
+
+## 잘 안 될 때
+
+**확장을 눌러도 아무 일이 없습니다**
+지금 보고 있는 페이지가 claude.ai · ChatGPT · Gemini의 **대화 페이지**인지 확인해주세요. 목록 페이지에서는 동작하지 않습니다.
+
+**호스트를 찾을 수 없다고 나옵니다**
+확장을 다시 로드하면 **확장 ID가 바뀝니다.** 그럴 땐 호스트를 다시 연결해야 합니다.
+
+```bash
+node dist/cli.js install-host
+```
+
+**연결했는데도 안 됩니다**
+매니페스트가 만들어졌는지 확인하고, Chrome을 완전히 종료했다가 다시 열어주세요. Chrome은 시작할 때 매니페스트를 읽습니다.
+
+```bash
+cat ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/com.web_chat_downloader.host.json
+```
+
+**동기화가 중간에 멈췄습니다**
+서비스가 요청을 제한한 경우입니다. **받은 데이터는 그대로 남습니다.** 1~2분 뒤 다시 실행하면 이어서 받습니다.
+
+## 제거
+
+```bash
+rm -rf ~/.web-chat-downloader
+rm ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/com.web_chat_downloader.host.json
+```
+
+그리고 `chrome://extensions`에서 확장을 삭제하면 됩니다. **이미 받아둔 세션 파일은 지워지지 않습니다.**
 
 ## 개발
 
