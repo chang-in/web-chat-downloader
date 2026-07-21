@@ -143,10 +143,21 @@ describe('resolveCwd', () => {
     finally { if (prev === undefined) delete process.env.WCD_CWD; else process.env.WCD_CWD = prev }
   })
 
-  it('WCD_CWD가 없으면 ~/Desktop/Archive/web-chats 기본값', () => {
+  it('WCD_CWD가 없고 기존 폴더도 없으면 ~/web-chats 기본값', () => {
     const prev = process.env.WCD_CWD
     delete process.env.WCD_CWD
-    try { expect(resolveCwd().endsWith('/Desktop/Archive/web-chats')).toBe(true) }
-    finally { if (prev !== undefined) process.env.WCD_CWD = prev }
+    try {
+      expect(resolveCwd({ home: '/home/x', exists: () => false })).toBe('/home/x/web-chats')
+    } finally { if (prev !== undefined) process.env.WCD_CWD = prev }
+  })
+
+  // 0.1.x까지 쓰던 경로가 이미 있는 사용자는 데이터가 갈라지면 안 된다.
+  it('기존 ~/Desktop/Archive/web-chats가 있으면 그쪽을 계속 쓴다', () => {
+    const prev = process.env.WCD_CWD
+    delete process.env.WCD_CWD
+    try {
+      const legacy = '/home/x/Desktop/Archive/web-chats'
+      expect(resolveCwd({ home: '/home/x', exists: (p) => p === legacy })).toBe(legacy)
+    } finally { if (prev !== undefined) process.env.WCD_CWD = prev }
   })
 })
