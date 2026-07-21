@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-i18n-title="opt_title">
 <head>
 <meta charset="utf-8">
 <title>설정 — 웹 대화 다운로더</title>
@@ -9,13 +9,13 @@
 <div class="page">
   <header class="page-head">
     <h1>설정</h1>
-    <p class="lede">바꾸면 바로 저장돼요. 따로 저장 버튼은 없어요.</p>
+    <p class="lede" data-i18n="opt_autosaveHint">바꾸면 바로 저장돼요. 따로 저장 버튼은 없어요.</p>
   </header>
 
   <main>
     <section class="card" aria-labelledby="h-agent">
-      <h2 id="h-agent">기본 에이전트</h2>
-      <p class="hint">resume 명령과 세션 포맷을 결정해요.</p>
+      <h2 id="h-agent" data-i18n="opt_defaultAgent">기본 에이전트</h2>
+      <p class="hint" data-i18n="opt_agentHint">resume 명령과 세션 포맷을 결정해요.</p>
       <div class="segmented" role="radiogroup" aria-labelledby="h-agent">
         <input type="radio" name="defaultAgent" id="agent-claude" value="claude">
         <label for="agent-claude">Claude</label>
@@ -26,26 +26,26 @@
 
     <section class="card" aria-labelledby="h-sync">
       <div class="row-head">
-        <h2 id="h-sync">자동 동기화</h2>
+        <h2 id="h-sync" data-i18n="opt_autoSync">자동 동기화</h2>
         <label class="switch">
           <input type="checkbox" id="auto-enabled">
           <span class="track" aria-hidden="true"></span>
-          <span class="sr-only">자동 동기화 켜기</span>
+          <span class="sr-only" data-i18n="opt_autoSyncOn">자동 동기화 켜기</span>
         </label>
       </div>
       <div class="field-row" id="interval-row">
-        <label for="auto-interval">주기</label>
+        <label for="auto-interval" data-i18n="opt_interval">주기</label>
         <select id="auto-interval">
-          <option value="30">30분</option>
-          <option value="60">1시간</option>
-          <option value="180">3시간</option>
+          <option value="30" data-i18n="opt_30min">30분</option>
+          <option value="60" data-i18n="opt_1hour">1시간</option>
+          <option value="180" data-i18n="opt_3hours">3시간</option>
         </select>
       </div>
-      <p class="hint">자동 동기화는 해당 서비스 탭이 열려 있을 때만 동작해요.</p>
+      <p class="hint" data-i18n="opt_autoSyncHint">자동 동기화는 해당 서비스 탭이 열려 있을 때만 동작해요.</p>
     </section>
 
     <section class="card" aria-labelledby="h-scope">
-      <h2 id="h-scope">동기화 범위</h2>
+      <h2 id="h-scope" data-i18n="opt_syncScope">동기화 범위</h2>
       <div class="radio-list" role="radiogroup" aria-labelledby="h-scope">
         <div class="radio-row">
           <input type="radio" name="syncScope" id="scope-all" value="all">
@@ -62,19 +62,19 @@
 
     <section class="card" aria-labelledby="h-images">
       <div class="row-head">
-        <h2 id="h-images">이미지 임베드</h2>
+        <h2 id="h-images" data-i18n="opt_embedImages">이미지 임베드</h2>
         <label class="switch">
           <input type="checkbox" id="embed-images">
           <span class="track" aria-hidden="true"></span>
-          <span class="sr-only">이미지 임베드 켜기</span>
+          <span class="sr-only" data-i18n="opt_embedOn">이미지 임베드 켜기</span>
         </label>
       </div>
-      <p class="hint">이미지를 base64로 세션에 포함해요. 끄면 세션 파일이 더 가벼워져요.</p>
+      <p class="hint" data-i18n="opt_embedHint">이미지를 base64로 세션에 포함해요. 끄면 세션 파일이 더 가벼워져요.</p>
     </section>
 
     <section class="card" aria-labelledby="h-paths">
-      <h2 id="h-paths">저장 위치</h2>
-      <p class="hint">비워두면 기본 폴더를 써요.</p>
+      <h2 id="h-paths" data-i18n="opt_storagePath">저장 위치</h2>
+      <p class="hint" data-i18n="opt_pathHint">비워두면 기본 폴더를 써요.</p>
       <div class="path-field">
         <label for="path-claude">claude.ai</label>
         <input type="text" id="path-claude" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
@@ -87,25 +87,15 @@
         <label for="path-gemini">Gemini</label>
         <input type="text" id="path-gemini" class="mono" placeholder="~/Desktop/Archive/web-chats" autocomplete="off" spellcheck="false">
       </div>
-      <p class="hint">
-        세 칸에 같은 경로를 넣으면 한 폴더를 함께 써요. 중복 방지 장부도 하나로 합쳐져서,
-        터미널에서 이어갈 때 세 서비스 대화가 한 목록에 섞여 나와요.
-        서비스마다 다른 경로를 넣으면 목록도 그만큼 나뉘고요.
-      </p>
-      <p class="hint">
-        이 폴더에 실제로 생기는 건 장부 <span class="mono">.wcd-index.json</span> 하나예요.
-        대화 전문이 아니라 “웹 대화 → 저장된 세션” 짝만 적혀 있어요.
-        전문은 Claude Code가 읽는 자리에 따로 저장돼요 —
-        예를 들어 <span class="mono">~/Desktop/Archive/web-chats</span>로 설정하면
-        <span class="mono">~/.claude/projects/-Users-…-Desktop-Archive-web-chats/&lt;세션ID&gt;.jsonl</span>에 쌓여요.
-        기본 에이전트가 Codex면 <span class="mono">~/.codex/sessions/</span> 아래에 쌓이고요.
-      </p>
+      <p class="hint" data-i18n="opt_sharedPathHint">세 칸에 같은 경로를 넣으면 한 폴더를 함께 써요. 중복 방지 장부도 하나로 합쳐져서, 터미널에서 이어갈 때 세 서비스 대화가 한 목록에 섞여 나와요. 서비스마다 다른 경로를 넣으면 목록도 그만큼 나뉘고요.</p>
+      <p class="hint" data-i18n-html="opt_indexHint">이 폴더에 실제로 생기는 건 장부 <span class="mono" data-i18n-sub>.wcd-index.json</span> 하나예요. 대화 전문이 아니라 “웹 대화 → 저장된 세션” 짝만 적혀 있어요. 전문은 Claude Code가 읽는 자리에 따로 저장돼요 — 예를 들어 <span class="mono" data-i18n-sub>~/Desktop/Archive/web-chats</span>로 설정하면 <span class="mono" data-i18n-sub>~/.claude/projects/-Users-…-Desktop-Archive-web-chats/&lt;세션ID&gt;.jsonl</span>에 쌓여요. 기본 에이전트가 Codex면 <span class="mono" data-i18n-sub>~/.codex/sessions/</span> 아래에 쌓이고요.</p>
     </section>
   </main>
 
-  <div class="save-toast" id="save-toast" role="status" aria-live="polite">저장됨</div>
+  <div class="save-toast" id="save-toast" role="status" aria-live="polite" data-i18n="opt_saved">저장됨</div>
 </div>
 <script src="settings.js"></script>
+<script src="i18n.js"></script>
 <script src="options.js"></script>
 </body>
 </html>
