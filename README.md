@@ -134,6 +134,16 @@ claude.ai · ChatGPT · Gemini의 **대화 페이지**에서 확장 아이콘을
 **확장을 눌러도 아무 일이 없습니다**
 지금 보고 있는 페이지가 claude.ai · ChatGPT · Gemini의 **대화 페이지**인지 확인해주세요. 목록 페이지에서는 동작하지 않습니다.
 
+**`Cannot find module '.../dist/cli.js'`**
+저장소 폴더 **밖에서** 실행하면 납니다. `dist/`가 있는 폴더로 이동한 뒤 실행해주세요.
+
+```bash
+cd <저장소 폴더>
+node dist/cli.js install-host
+```
+
+`dist/`가 아예 없다면 아직 빌드하지 않은 것입니다 — `npm install && npm run build`를 먼저 실행해주세요.
+
 **호스트를 찾을 수 없다고 나옵니다**
 확장을 다시 로드하면 **확장 ID가 바뀝니다.** 그럴 땐 호스트를 다시 연결해야 합니다.
 
